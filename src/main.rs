@@ -5,6 +5,8 @@ use glutin::event_loop::{EventLoop, ControlFlow};
 use glutin::event::{Event, WindowEvent};
 use glutin::window::WindowBuilder;
 
+mod shader;
+
 fn main() {
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new().with_title("gl");
@@ -25,7 +27,7 @@ fn main() {
             Event::LoopDestroyed => (),
             Event::WindowEvent {event, ..} => match event {
                 WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
-                _ => (),
+                _ => ()
             },
             Event::RedrawRequested(_) => {
                 unsafe {
@@ -34,7 +36,7 @@ fn main() {
                 }
                 ctx.swap_buffers().unwrap();
             }
-            _ => (),
+            _ => ()
         }
     });
 }
