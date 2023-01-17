@@ -23,10 +23,12 @@ fn main() {
     gl::load_with(|ptr| ctx.get_proc_address(ptr) as *const _);
 
     unsafe {
-        let vertex_shader = Shader::new("/src/vert.glsl", gl::VERTEX_SHADER).unwrap();
-        let fragment_shader = Shader::new("/src/frag.glsl", gl::FRAGMENT_SHADER).unwrap();
-        let program = ShaderProgram::new(&vertex_shader, &fragment_shader);
+        let vertex_shader = Shader::new("./shaders/vert.glsl", gl::VERTEX_SHADER).unwrap();
+        let fragment_shader = Shader::new("./shaders/frag.glsl", gl::FRAGMENT_SHADER).unwrap();
+        let program = ShaderProgram::new(&vertex_shader, &fragment_shader).unwrap();
+        program.apply();
     }
+
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
