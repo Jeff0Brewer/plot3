@@ -1,5 +1,5 @@
 extern crate gl;
-use gl::types::{GLuint, GLsizeiptr};
+use gl::types::{GLuint, GLint, GLsizeiptr};
 
 pub struct Buffer {
     pub id: GLuint,
@@ -55,13 +55,14 @@ impl VertexArray {
         offset: GLint
     ) {
         self.bind();
+        let off_ptr = offset * (core::mem::size_of::<f32>() as i32);
         gl::VertexAttribPointer(
             index,
             size,
             gl::FLOAT,
             gl::FALSE,
             std::mem::size_of::<V>() as GLint,
-            offset as *const _
+            off_ptr as *const _
         );
         gl::EnableVertexAttribArray(index);
     }
