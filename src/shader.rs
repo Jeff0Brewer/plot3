@@ -1,9 +1,10 @@
 extern crate gl;
+extern crate thiserror;
 use gl::types::{GLuint, GLint, GLenum};
-use std::{fmt, ptr, fs};
+use thiserror::Error;
+use std::{ptr, fs};
 use std::ffi::{CString, NulError};
 use std::string::FromUtf8Error;
-use std::error::Error;
 
 pub struct Shader {
     pub id: GLuint
@@ -11,9 +12,7 @@ pub struct Shader {
 
 impl Shader {
     pub unsafe fn new(source_file: &str, shader_type: GLenum) -> Result<Self, ShaderError> {
-        let shader = Self {
-            id: gl::CreateShader(shader_type)
-        };
+        let shader = Self { id: gl::CreateShader(shader_type) };
         let source_code = CString::new(fs::read_to_string(source_file)?)?;
         gl::ShaderSource(shader.id, 1, &source_code.as_ptr(), ptr::null());
         gl::CompileShader(shader.id);
@@ -40,9 +39,7 @@ pub struct ShaderProgram {
 
 impl ShaderProgram {
     pub unsafe fn new(vertex_shader: &Shader, fragment_shader: &Shader) -> Result<Self, ShaderError> {
-        let program = Self {
-            id: gl::CreateProgram()
-        };
+        let program = Self { id: gl::CreateProgram() };
         gl::AttachShader(program.id, vertex_shader.id);
         gl::AttachShader(program.id, fragment_shader.id);
         gl::LinkProgram(program.id);
@@ -72,43 +69,16 @@ impl ShaderProgram {
     }
 }
 
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub enum ShaderError {
+    #[error("Compilation Failed: {0}")]
     CompilationError(String),
+    #[error("Linking Failed: {0}")]
     LinkingError(String),
-    NulError(NulError),
-    Utf8Error(FromUtf8Error),
-    IoError(std::io::Error)
+    #[error{"{0}"}]
+    Utf8Error(#[from] FromUtf8Error),
+    #[error{"{0}"}]
+    NulError(#[from] NulError),
+    #[error{"{0}"}]
+    IoError(#[from] std::io::Error)
 }
-
-impl From<NulError> for ShaderError {
-    fn from(other: NulError) -> ShaderError {
-        ShaderError::NulError(other)
-    }
-}
-
-impl From<FromUtf8Error> for ShaderError {
-    fn from(other: FromUtf8Error) -> ShaderError {
-        ShaderError::Utf8Error(other)
-    }
-}
-
-impl From<std::io::Error> for ShaderError {
-    fn from(other: std::io::Error) -> ShaderError {
-        ShaderError::IoError(other)
-    }
-}
-
-impl fmt::Display for ShaderError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            ShaderError::CompilationError(log) => write!(f, "Compilation Failed: {}", log),
-            ShaderError::LinkingError(log) => write!(f, "{}", log),
-            ShaderError::NulError(err) => write!(f, "{}", err),
-            ShaderError::Utf8Error(err) => write!(f, "{}", err),
-            ShaderError::IoError(err) => write!(f, "{}", err)
-        }
-    }
-}
-
-impl Error for ShaderError {}
