@@ -23,7 +23,7 @@ unsafe fn run() {
     let fragment_shader = Shader::new("./shaders/frag.glsl", gl::FRAGMENT_SHADER).unwrap();
     let program = ShaderProgram::new(&vertex_shader, &fragment_shader).unwrap();
 
-    let vertex_buffer = Buffer::new(gl::ARRAY_BUFFER);
+    let vertex_buffer = Buffer::new();
     vertex_buffer.set_data(&VERTICES, gl::STATIC_DRAW);
 
     let vertex_array = VertexArray::new();
