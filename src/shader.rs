@@ -66,6 +66,11 @@ impl ShaderProgram {
         }
     }
 
+    pub unsafe fn get_attrib_location(&self, attrib: &str) -> Result<GLuint, NulError> {
+        let attrib = CString::new(attrib)?;
+        Ok(gl::GetAttribLocation(self.id, attrib.as_ptr()) as GLuint)
+    }
+
     pub unsafe fn apply(&self) {
         gl::UseProgram(self.id);
     }
