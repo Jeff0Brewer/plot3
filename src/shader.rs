@@ -32,10 +32,6 @@ impl Shader {
             Err(ShaderError::CompilationError(log))
         }
     }
-
-    pub unsafe fn drop(&mut self) {
-        gl::DeleteShader(self.id);
-    }
 }
 
 pub struct ShaderProgram {
@@ -73,10 +69,6 @@ impl ShaderProgram {
 
     pub unsafe fn apply(&self) {
         gl::UseProgram(self.id);
-    }
-
-    pub unsafe fn drop(&mut self) {
-        gl::DeleteProgram(self.id);
     }
 }
 

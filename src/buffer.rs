@@ -27,10 +27,6 @@ impl Buffer {
             draw_type
         );
     }
-
-    pub unsafe fn drop(&mut self) {
-        gl::DeleteBuffers(1, [self.id].as_ptr());
-    }
 }
 
 pub struct VertexArray {
@@ -65,9 +61,5 @@ impl VertexArray {
             off_ptr as *const _
         );
         gl::EnableVertexAttribArray(index);
-    }
-
-    pub unsafe fn drop(&mut self) {
-        gl::DeleteVertexArrays(1, [self.id].as_ptr());
     }
 }
