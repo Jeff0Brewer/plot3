@@ -1,10 +1,6 @@
 extern crate gl;
-mod window;
-use window::Window;
-mod shader;
-use shader::{Shader, Program};
-mod buffer;
-use buffer::{Buffer, VertexArray};
+mod gl_wrap;
+use gl_wrap::{Window, Shader, Program, Buffer, VertexArray};
 
 type Pos = [f32; 2];
 type Col = [f32; 3];

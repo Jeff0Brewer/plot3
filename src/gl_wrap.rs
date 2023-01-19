@@ -1,10 +1,51 @@
+extern crate glutin;
 extern crate gl;
 extern crate thiserror;
-use gl::types::{GLuint, GLint, GLenum};
+use glutin::{ContextWrapper, ContextBuilder, GlRequest, Api, CreationError, PossiblyCurrent};
+use glutin::event_loop::{EventLoop, ControlFlow};
+use glutin::event::{Event, WindowEvent};
+use glutin::window::WindowBuilder;
+use gl::types::{GLuint, GLint, GLenum, GLsizeiptr};
 use thiserror::Error;
 use std::{ptr, fs};
 use std::ffi::{CString, NulError};
 use std::string::FromUtf8Error;
+
+pub struct Window {
+    ctx: ContextWrapper<PossiblyCurrent, glutin::window::Window>,
+    event_loop: EventLoop<()>
+}
+
+impl Window {
+    pub unsafe fn new(title: &str) -> Result<Self, CreationError> {
+        let window = WindowBuilder::new().with_title(title);
+        let event_loop = EventLoop::new();
+        let ctx = ContextBuilder::new()
+            .with_gl(GlRequest::Specific(Api::OpenGl, (3, 3)))
+            .build_windowed(window, &event_loop)?;
+        let ctx = ctx.make_current().unwrap();
+        gl::load_with(|ptr| ctx.get_proc_address(ptr) as *const _);
+        Ok(Self { ctx, event_loop })
+    }
+
+    pub unsafe fn run<F: Fn() -> () + 'static>(self, draw: F) -> () {
+        self.event_loop.run(move |event, _, control_flow| {
+            *control_flow = ControlFlow::Wait;
+            match event {
+                Event::LoopDestroyed => (),
+                Event::WindowEvent {event, ..} => match event {
+                    WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
+                    _ => ()
+                },
+                Event::RedrawRequested(_) => {
+                    draw();
+                    self.ctx.swap_buffers().unwrap();
+                },
+                _ => ()
+            }
+        })
+    }
+}
 
 pub struct Shader {
     pub id: GLuint
@@ -66,6 +107,57 @@ impl Program {
 
     pub unsafe fn apply(&self) {
         gl::UseProgram(self.id);
+    }
+}
+
+pub struct Buffer {
+    pub id: GLuint
+}
+
+impl Buffer {
+    pub unsafe fn new() -> Self {
+        let mut id: GLuint = 0;
+        gl::GenBuffers(1, &mut id);
+        Self { id }
+    }
+
+    pub unsafe fn bind(&self) {
+        gl::BindBuffer(gl::ARRAY_BUFFER, self.id);
+    }
+
+    pub unsafe fn set_data<D>(&self, data: &[D], draw_type: GLuint) {
+        self.bind();
+        let (_, bytes, _) = data.align_to::<u8>();
+        gl::BufferData(
+            gl::ARRAY_BUFFER,
+            bytes.len() as GLsizeiptr,
+            bytes.as_ptr() as *const _,
+            draw_type
+        );
+    }
+}
+
+pub struct VertexArray {
+    pub id: GLuint
+}
+
+impl VertexArray {
+    pub unsafe fn new() -> Self {
+        let mut id: GLuint = 0;
+        gl::GenVertexArrays(1, &mut id);
+        Self { id }
+    }
+
+    pub unsafe fn bind(&self) {
+        gl::BindVertexArray(self.id);
+    }
+
+    pub unsafe fn set_attribute<V: Sized>(&self, index: GLuint, size: GLint, offset_ind: i32) {
+        self.bind();
+        let stride = std::mem::size_of::<V>() as GLint;
+        let offset_ptr = (offset_ind * (core::mem::size_of::<f32>() as i32)) as *const _;
+        gl::VertexAttribPointer(index, size, gl::FLOAT, gl::FALSE, stride, offset_ptr);
+        gl::EnableVertexAttribArray(index);
     }
 }
 
