@@ -2,7 +2,7 @@ extern crate gl;
 mod window;
 use window::Window;
 mod shader;
-use shader::{Shader, ShaderProgram};
+use shader::{Shader, Program};
 mod buffer;
 use buffer::{Buffer, VertexArray};
 
@@ -21,7 +21,7 @@ unsafe fn run() {
 
     let vertex_shader = Shader::new("./shaders/vert.glsl", gl::VERTEX_SHADER).unwrap();
     let fragment_shader = Shader::new("./shaders/frag.glsl", gl::FRAGMENT_SHADER).unwrap();
-    let program = ShaderProgram::new(&vertex_shader, &fragment_shader).unwrap();
+    let program = Program::new(&vertex_shader, &fragment_shader).unwrap();
 
     let vertex_buffer = Buffer::new();
     vertex_buffer.set_data(&VERTICES, gl::STATIC_DRAW);

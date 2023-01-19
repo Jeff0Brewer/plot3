@@ -33,11 +33,11 @@ impl Shader {
     }
 }
 
-pub struct ShaderProgram {
+pub struct Program {
     pub id: GLuint
 }
 
-impl ShaderProgram {
+impl Program {
     pub unsafe fn new(vertex_shader: &Shader, fragment_shader: &Shader) -> Result<Self, ShaderError> {
         let program = Self { id: gl::CreateProgram() };
         gl::AttachShader(program.id, vertex_shader.id);
