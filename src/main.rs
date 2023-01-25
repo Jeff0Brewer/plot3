@@ -12,7 +12,7 @@ const VERTICES: [Vertex; 3] = [
     Vertex([0.0,   0.5], [0.0, 0.0, 1.0])
 ];
 
-unsafe fn run() {
+fn main() {
     let window = Window::new("gl").unwrap();
 
     let vertex_shader = Shader::new("./shaders/vert.glsl", gl::VERTEX_SHADER).unwrap();
@@ -29,14 +29,12 @@ unsafe fn run() {
     vertex_array.set_attribute::<Vertex>(col_index, 3, 2);
 
     window.run(move || {
-        gl::ClearColor(0.1, 0.1, 0.1, 1.0);
-        gl::Clear(gl::COLOR_BUFFER_BIT);
         program.apply();
         vertex_array.bind();
-        gl::DrawArrays(gl::TRIANGLES, 0, 3);
+        unsafe {
+            gl::ClearColor(0.1, 0.1, 0.1, 1.0);
+            gl::Clear(gl::COLOR_BUFFER_BIT);
+            gl::DrawArrays(gl::TRIANGLES, 0, 3);
+        }
     });
-}
-
-fn main() {
-    unsafe { run(); };
 }
