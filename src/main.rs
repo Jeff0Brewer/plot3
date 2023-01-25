@@ -28,13 +28,22 @@ fn main() {
     let col_index = program.get_attrib_location("color").unwrap();
     vertex_array.set_attribute::<Vertex>(col_index, 3, 2);
 
-    window.run(move || {
-        program.apply();
-        vertex_array.bind();
+    program.apply();
+    vertex_array.bind();
+    let draw = || {
         unsafe {
             gl::ClearColor(0.1, 0.1, 0.1, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
             gl::DrawArrays(gl::TRIANGLES, 0, 3);
         }
-    });
+    };
+    let cleanup = move || {
+        vertex_shader.drop();
+        fragment_shader.drop();
+        program.drop();
+        vertex_buffer.drop();
+        vertex_array.drop();
+    };
+
+    window.run(draw, cleanup);
 }

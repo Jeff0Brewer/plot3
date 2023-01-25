@@ -30,14 +30,16 @@ impl Window {
         }
     }
 
-    pub fn run<F: Fn() -> () + 'static>(self, draw: F) -> () {
+    pub fn run<F: Fn() -> () + 'static>(self, draw: fn() -> (), cleanup: F) -> () {
         self.event_loop.run(move |event, _, control_flow| {
             *control_flow = ControlFlow::Wait;
             match event {
-                Event::LoopDestroyed => (),
                 Event::WindowEvent {event, ..} => match event {
                     WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
                     _ => ()
+                },
+                Event::LoopDestroyed => {
+                    cleanup();
                 },
                 Event::RedrawRequested(_) => {
                     draw();
@@ -78,6 +80,10 @@ impl Shader {
             let log = String::from_utf8(error_log)?;
             Err(ShaderError::CompilationError(log))
         }
+    }
+
+    pub fn drop(&self) {
+        unsafe { gl::DeleteShader(self.id); }
     }
 }
 
@@ -120,6 +126,10 @@ impl Program {
     pub fn apply(&self) {
         unsafe { gl::UseProgram(self.id); }
     }
+
+    pub fn drop(&self) {
+        unsafe { gl::DeleteProgram(self.id); }
+    }
 }
 
 pub struct Buffer {
@@ -131,10 +141,6 @@ impl Buffer {
         let mut id: GLuint = 0;
         unsafe { gl::GenBuffers(1, &mut id); }
         Self { id }
-    }
-
-    pub fn bind(&self) {
-        unsafe { gl::BindBuffer(gl::ARRAY_BUFFER, self.id); }
     }
 
     pub fn set_data<D>(&self, data: &[D], draw_type: GLuint) {
@@ -149,6 +155,14 @@ impl Buffer {
             );
         }
     }
+
+    pub fn bind(&self) {
+        unsafe { gl::BindBuffer(gl::ARRAY_BUFFER, self.id); }
+    }
+
+    pub fn drop(&self) {
+        unsafe { gl::DeleteBuffers(1, [self.id].as_ptr()); }
+    }
 }
 
 pub struct VertexArray {
@@ -162,10 +176,6 @@ impl VertexArray {
         Self { id }
     }
 
-    pub fn bind(&self) {
-        unsafe { gl::BindVertexArray(self.id); }
-    }
-
     pub fn set_attribute<V: Sized>(&self, index: GLuint, size: GLint, offset_ind: i32) {
         self.bind();
         let stride = std::mem::size_of::<V>() as GLint;
@@ -174,6 +184,14 @@ impl VertexArray {
             gl::VertexAttribPointer(index, size, gl::FLOAT, gl::FALSE, stride, offset_ptr);
             gl::EnableVertexAttribArray(index);
         }
+    }
+
+    pub fn bind(&self) {
+        unsafe { gl::BindVertexArray(self.id); }
+    }
+
+    pub fn drop(&self) {
+        unsafe { gl::DeleteVertexArrays(1, [self.id].as_ptr()); }
     }
 }
 
