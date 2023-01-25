@@ -6,7 +6,6 @@ use glutin::event_loop::{EventLoop, ControlFlow};
 use glutin::event::{Event, WindowEvent};
 use glutin::window::WindowBuilder;
 use gl::types::{GLuint, GLint, GLenum, GLsizeiptr};
-use thiserror::Error;
 use std::{ptr, fs};
 use std::ffi::{CString, NulError};
 use std::string::FromUtf8Error;
@@ -17,6 +16,7 @@ pub struct Window {
 }
 
 impl Window {
+    // initialize window with OpenGl 3.3 context
     pub fn new(title: &str) -> Result<Self, CreationError> {
         let window = WindowBuilder::new().with_title(title);
         let event_loop = EventLoop::new();
@@ -30,7 +30,15 @@ impl Window {
         }
     }
 
-    pub fn run<F: Fn() -> () + 'static>(self, draw: fn() -> (), cleanup: F) -> () {
+    // begin draw loop with generic draw function
+    // pass gl resources as vecs for access in both draw and drop operations
+    pub fn run(
+        self,
+        draw: fn(&Vec<Program>, &Vec<Buffer>, &Vec<VertexArray>) -> (),
+        programs: Vec<Program>,
+        buffers: Vec<Buffer>,
+        attribs: Vec<VertexArray>
+    ) -> () {
         self.event_loop.run(move |event, _, control_flow| {
             *control_flow = ControlFlow::Wait;
             match event {
@@ -39,10 +47,14 @@ impl Window {
                     _ => ()
                 },
                 Event::LoopDestroyed => {
-                    cleanup();
+                    // free gl resources on loop end
+                    for program in &programs { program.drop(); }
+                    for buffer in &buffers { buffer.drop(); }
+                    for attrib in &attribs { attrib.drop(); }
                 },
                 Event::RedrawRequested(_) => {
-                    draw();
+                    // call user-defined draw function passing references to gl resources
+                    draw(&programs, &buffers, &attribs);
                     self.ctx.swap_buffers().unwrap();
                 },
                 _ => ()
@@ -57,6 +69,7 @@ pub struct Shader {
 
 impl Shader {
     pub fn new(source_file: &str, shader_type: GLenum) -> Result<Self, ShaderError> {
+        // load and compile shader from text file
         let source_code = CString::new(fs::read_to_string(source_file)?)?;
         let shader: Self;
         unsafe {
@@ -65,11 +78,13 @@ impl Shader {
             gl::CompileShader(shader.id);
         }
 
+        // check if shader compiled successfully
         let mut success: GLint = 0;
         unsafe { gl::GetShaderiv(shader.id, gl::COMPILE_STATUS, &mut success); }
         if success == 1 {
             Ok(shader)
         } else {
+            // get shader info log and throw error on compilation failure
             let mut log_size: GLint = 0;
             unsafe { gl::GetShaderiv(shader.id, gl::INFO_LOG_LENGTH, &mut log_size); }
             let mut error_log: Vec<u8> = Vec::with_capacity(log_size as usize);
@@ -93,6 +108,7 @@ pub struct Program {
 
 impl Program {
     pub fn new(vertex_shader: &Shader, fragment_shader: &Shader) -> Result<Self, ShaderError> {
+        // link shaders into program
         let program: Self;
         unsafe {
             program = Self { id: gl::CreateProgram() };
@@ -101,11 +117,13 @@ impl Program {
             gl::LinkProgram(program.id);
         }
 
+        // check if program linked successfully
         let mut success: GLint = 0;
         unsafe { gl::GetProgramiv(program.id, gl::LINK_STATUS, &mut success); }
         if success == 1 {
             Ok(program)
         } else {
+            // get program info log and throw error on linking failure
             let mut log_size: GLint = 0;
             unsafe { gl::GetProgramiv(program.id, gl::INFO_LOG_LENGTH, &mut log_size); }
             let mut error_log: Vec<u8> = Vec::with_capacity(log_size as usize);
@@ -195,6 +213,7 @@ impl VertexArray {
     }
 }
 
+use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum ShaderError {
     #[error("Compilation Failed: {0}")]
