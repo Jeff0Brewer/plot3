@@ -1,14 +1,13 @@
 extern crate glutin;
 extern crate gl;
-extern crate thiserror;
 use glutin::{ContextWrapper, ContextBuilder, GlRequest, Api, CreationError, PossiblyCurrent};
 use glutin::event_loop::{EventLoop, ControlFlow};
 use glutin::event::{Event, WindowEvent};
 use glutin::window::WindowBuilder;
 use gl::types::{GLuint, GLint, GLenum, GLsizeiptr};
-use std::{ptr, fs};
 use std::ffi::{CString, NulError};
 use std::string::FromUtf8Error;
+use std::{ptr, fs};
 
 pub struct Window {
     ctx: ContextWrapper<PossiblyCurrent, glutin::window::Window>,
@@ -213,6 +212,7 @@ impl VertexArray {
     }
 }
 
+extern crate thiserror;
 use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum ShaderError {
