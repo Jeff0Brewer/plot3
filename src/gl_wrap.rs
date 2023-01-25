@@ -17,18 +17,20 @@ pub struct Window {
 }
 
 impl Window {
-    pub unsafe fn new(title: &str) -> Result<Self, CreationError> {
+    pub fn new(title: &str) -> Result<Self, CreationError> {
         let window = WindowBuilder::new().with_title(title);
         let event_loop = EventLoop::new();
         let ctx = ContextBuilder::new()
             .with_gl(GlRequest::Specific(Api::OpenGl, (3, 3)))
             .build_windowed(window, &event_loop)?;
-        let ctx = ctx.make_current().unwrap();
-        gl::load_with(|ptr| ctx.get_proc_address(ptr) as *const _);
-        Ok(Self { ctx, event_loop })
+        unsafe {
+            let ctx = ctx.make_current().unwrap();
+            gl::load_with(|ptr| ctx.get_proc_address(ptr) as *const _);
+            Ok(Self { ctx, event_loop })
+        }
     }
 
-    pub unsafe fn run<F: Fn() -> () + 'static>(self, draw: F) -> () {
+    pub fn run<F: Fn() -> () + 'static>(self, draw: F) -> () {
         self.event_loop.run(move |event, _, control_flow| {
             *control_flow = ControlFlow::Wait;
             match event {
@@ -52,22 +54,27 @@ pub struct Shader {
 }
 
 impl Shader {
-    pub unsafe fn new(source_file: &str, shader_type: GLenum) -> Result<Self, ShaderError> {
-        let shader = Self { id: gl::CreateShader(shader_type) };
+    pub fn new(source_file: &str, shader_type: GLenum) -> Result<Self, ShaderError> {
         let source_code = CString::new(fs::read_to_string(source_file)?)?;
-        gl::ShaderSource(shader.id, 1, &source_code.as_ptr(), ptr::null());
-        gl::CompileShader(shader.id);
+        let shader: Self;
+        unsafe {
+            shader = Self { id: gl::CreateShader(shader_type) };
+            gl::ShaderSource(shader.id, 1, &source_code.as_ptr(), ptr::null());
+            gl::CompileShader(shader.id);
+        }
 
         let mut success: GLint = 0;
-        gl::GetShaderiv(shader.id, gl::COMPILE_STATUS, &mut success);
+        unsafe { gl::GetShaderiv(shader.id, gl::COMPILE_STATUS, &mut success); }
         if success == 1 {
             Ok(shader)
         } else {
             let mut log_size: GLint = 0;
-            gl::GetShaderiv(shader.id, gl::INFO_LOG_LENGTH, &mut log_size);
+            unsafe { gl::GetShaderiv(shader.id, gl::INFO_LOG_LENGTH, &mut log_size); }
             let mut error_log: Vec<u8> = Vec::with_capacity(log_size as usize);
-            gl::GetShaderInfoLog(shader.id, log_size, &mut log_size, error_log.as_mut_ptr() as *mut _);
-            error_log.set_len(log_size as usize);
+            unsafe {
+                gl::GetShaderInfoLog(shader.id, log_size, &mut log_size, error_log.as_mut_ptr() as *mut _);
+                error_log.set_len(log_size as usize);
+            }
             let log = String::from_utf8(error_log)?;
             Err(ShaderError::CompilationError(log))
         }
@@ -79,34 +86,39 @@ pub struct Program {
 }
 
 impl Program {
-    pub unsafe fn new(vertex_shader: &Shader, fragment_shader: &Shader) -> Result<Self, ShaderError> {
-        let program = Self { id: gl::CreateProgram() };
-        gl::AttachShader(program.id, vertex_shader.id);
-        gl::AttachShader(program.id, fragment_shader.id);
-        gl::LinkProgram(program.id);
+    pub fn new(vertex_shader: &Shader, fragment_shader: &Shader) -> Result<Self, ShaderError> {
+        let program: Self;
+        unsafe {
+            program = Self { id: gl::CreateProgram() };
+            gl::AttachShader(program.id, vertex_shader.id);
+            gl::AttachShader(program.id, fragment_shader.id);
+            gl::LinkProgram(program.id);
+        }
 
         let mut success: GLint = 0;
-        gl::GetProgramiv(program.id, gl::LINK_STATUS, &mut success);
+        unsafe { gl::GetProgramiv(program.id, gl::LINK_STATUS, &mut success); }
         if success == 1 {
             Ok(program)
         } else {
             let mut log_size: GLint = 0;
-            gl::GetProgramiv(program.id, gl::INFO_LOG_LENGTH, &mut log_size);
+            unsafe { gl::GetProgramiv(program.id, gl::INFO_LOG_LENGTH, &mut log_size); }
             let mut error_log: Vec<u8> = Vec::with_capacity(log_size as usize);
-            gl::GetProgramInfoLog(program.id, log_size, &mut log_size, error_log.as_mut_ptr() as *mut _);
-            error_log.set_len(log_size as usize);
+            unsafe {
+                gl::GetProgramInfoLog(program.id, log_size, &mut log_size, error_log.as_mut_ptr() as *mut _);
+                error_log.set_len(log_size as usize);
+            }
             let log = String::from_utf8(error_log)?;
             Err(ShaderError::LinkingError(log))
         }
     }
 
-    pub unsafe fn get_attrib_location(&self, attrib: &str) -> Result<GLuint, NulError> {
+    pub fn get_attrib_location(&self, attrib: &str) -> Result<GLuint, NulError> {
         let attrib = CString::new(attrib)?;
-        Ok(gl::GetAttribLocation(self.id, attrib.as_ptr()) as GLuint)
+        unsafe { Ok(gl::GetAttribLocation(self.id, attrib.as_ptr()) as GLuint) }
     }
 
-    pub unsafe fn apply(&self) {
-        gl::UseProgram(self.id);
+    pub fn apply(&self) {
+        unsafe { gl::UseProgram(self.id); }
     }
 }
 
@@ -115,25 +127,27 @@ pub struct Buffer {
 }
 
 impl Buffer {
-    pub unsafe fn new() -> Self {
+    pub fn new() -> Self {
         let mut id: GLuint = 0;
-        gl::GenBuffers(1, &mut id);
+        unsafe { gl::GenBuffers(1, &mut id); }
         Self { id }
     }
 
-    pub unsafe fn bind(&self) {
-        gl::BindBuffer(gl::ARRAY_BUFFER, self.id);
+    pub fn bind(&self) {
+        unsafe { gl::BindBuffer(gl::ARRAY_BUFFER, self.id); }
     }
 
-    pub unsafe fn set_data<D>(&self, data: &[D], draw_type: GLuint) {
+    pub fn set_data<D>(&self, data: &[D], draw_type: GLuint) {
         self.bind();
-        let (_, bytes, _) = data.align_to::<u8>();
-        gl::BufferData(
-            gl::ARRAY_BUFFER,
-            bytes.len() as GLsizeiptr,
-            bytes.as_ptr() as *const _,
-            draw_type
-        );
+        unsafe {
+            let (_, bytes, _) = data.align_to::<u8>();
+            gl::BufferData(
+                gl::ARRAY_BUFFER,
+                bytes.len() as GLsizeiptr,
+                bytes.as_ptr() as *const _,
+                draw_type
+            );
+        }
     }
 }
 
@@ -142,22 +156,24 @@ pub struct VertexArray {
 }
 
 impl VertexArray {
-    pub unsafe fn new() -> Self {
+    pub fn new() -> Self {
         let mut id: GLuint = 0;
-        gl::GenVertexArrays(1, &mut id);
+        unsafe { gl::GenVertexArrays(1, &mut id); }
         Self { id }
     }
 
-    pub unsafe fn bind(&self) {
-        gl::BindVertexArray(self.id);
+    pub fn bind(&self) {
+        unsafe { gl::BindVertexArray(self.id); }
     }
 
-    pub unsafe fn set_attribute<V: Sized>(&self, index: GLuint, size: GLint, offset_ind: i32) {
+    pub fn set_attribute<V: Sized>(&self, index: GLuint, size: GLint, offset_ind: i32) {
         self.bind();
         let stride = std::mem::size_of::<V>() as GLint;
         let offset_ptr = (offset_ind * (core::mem::size_of::<f32>() as i32)) as *const _;
-        gl::VertexAttribPointer(index, size, gl::FLOAT, gl::FALSE, stride, offset_ptr);
-        gl::EnableVertexAttribArray(index);
+        unsafe {
+            gl::VertexAttribPointer(index, size, gl::FLOAT, gl::FALSE, stride, offset_ptr);
+            gl::EnableVertexAttribArray(index);
+        }
     }
 }
 
