@@ -8,6 +8,7 @@ use gl::types::{GLuint, GLint, GLenum, GLsizeiptr};
 use std::ffi::{CString, NulError};
 use std::string::FromUtf8Error;
 use std::{ptr, fs};
+use crate::scene::Scene;
 
 pub struct Window {
     ctx: ContextWrapper<PossiblyCurrent, glutin::window::Window>,
@@ -29,15 +30,9 @@ impl Window {
         }
     }
 
-    // begin draw loop with generic draw function
+    // begin draw loop with generic user defined scenes
     // pass gl resources as vecs for access in both draw and drop operations
-    pub fn run(
-        self,
-        draw: fn(&Vec<Program>, &Vec<Buffer>, &Vec<VertexArray>) -> (),
-        programs: Vec<Program>,
-        buffers: Vec<Buffer>,
-        attribs: Vec<VertexArray>
-    ) -> () {
+    pub fn run(self, scenes: Vec<Scene>) -> () {
         self.event_loop.run(move |event, _, control_flow| {
             *control_flow = ControlFlow::Wait;
             match event {
@@ -47,13 +42,15 @@ impl Window {
                 },
                 Event::LoopDestroyed => {
                     // free gl resources on loop end
-                    for program in &programs { program.drop(); }
-                    for buffer in &buffers { buffer.drop(); }
-                    for attrib in &attribs { attrib.drop(); }
+                    for scene in &scenes {
+                        for program in &scene.programs { program.drop(); }
+                        for buffer in &scene.buffers { buffer.drop(); }
+                        for attrib in &scene.attribs { attrib.drop(); }
+                    }
                 },
                 Event::RedrawRequested(_) => {
-                    // call user-defined draw function passing references to gl resources
-                    draw(&programs, &buffers, &attribs);
+                    unsafe { gl::Clear(gl::COLOR_BUFFER_BIT); }
+                    for scene in &scenes { scene.draw(); }
                     self.ctx.swap_buffers().unwrap();
                 },
                 _ => ()
@@ -135,7 +132,21 @@ impl Program {
         }
     }
 
-    pub fn get_attrib_location(&self, attrib: &str) -> Result<GLuint, NulError> {
+    // constructor from files to minimize initialization steps
+    pub fn new_from_files(vertex_file: &str, fragment_file: &str) -> Result<Self, ShaderError> {
+        let vertex_shader = Shader::new(vertex_file, gl::VERTEX_SHADER)?;
+        let fragment_shader = Shader::new(fragment_file, gl::FRAGMENT_SHADER)?;
+        let result = Self::new(&vertex_shader, &fragment_shader);
+
+        // free unneccesary shader resources after linking
+        vertex_shader.drop();
+        fragment_shader.drop();
+
+        // return result of default constructor
+        result
+    }
+
+    pub fn get_attrib_location(&self, attrib: &str) -> Result<GLuint, ShaderError> {
         let attrib = CString::new(attrib)?;
         unsafe { Ok(gl::GetAttribLocation(self.id, attrib.as_ptr()) as GLuint) }
     }
