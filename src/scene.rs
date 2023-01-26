@@ -2,6 +2,7 @@ extern crate gl;
 use gl::types::GLenum;
 use crate::gl_wrap::{Program, Buffer, VertexArray};
 
+// struct containing all info for single gl draw operation
 pub struct DrawPass {
     draw_type: GLenum,
     program_ind: usize,
@@ -36,6 +37,7 @@ impl DrawPass {
     }
 }
 
+// struct containing all gl resources and draw operations for complex scene
 pub struct Scene {
     pub draws: Vec<DrawPass>,
     pub programs: Vec<Program>,
@@ -65,5 +67,11 @@ impl Scene {
         for pass in &self.draws {
             pass.draw(&self.programs, &self.buffers, &self.attribs);
         }
+    }
+
+    pub fn drop(&self) {
+        for program in &self.programs { program.drop(); }
+        for buffer in &self.buffers { buffer.drop(); }
+        for attrib in &self.attribs { attrib.drop(); }
     }
 }

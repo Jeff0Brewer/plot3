@@ -20,8 +20,8 @@ impl Window {
     // initialize window with OpenGl 3.3 context
     pub fn new(title: &str, width: f64, height: f64) -> Result<Self, CreationError> {
         let window = WindowBuilder::new()
-            .with_title(title)
-            .with_inner_size(LogicalSize::new(width, height));
+            .with_inner_size(LogicalSize::new(width, height))
+            .with_title(title);
         let event_loop = EventLoop::new();
         let ctx = ContextBuilder::new()
             .with_gl(GlRequest::Specific(Api::OpenGl, (3, 3)))
@@ -34,7 +34,6 @@ impl Window {
     }
 
     // begin draw loop with generic user defined scenes
-    // pass gl resources as vecs for access in both draw and drop operations
     pub fn run(self, scenes: Vec<Scene>) -> () {
         self.event_loop.run(move |event, _, control_flow| {
             *control_flow = ControlFlow::Wait;
@@ -45,11 +44,7 @@ impl Window {
                 },
                 Event::LoopDestroyed => {
                     // free gl resources on loop end
-                    for scene in &scenes {
-                        for program in &scene.programs { program.drop(); }
-                        for buffer in &scene.buffers { buffer.drop(); }
-                        for attrib in &scene.attribs { attrib.drop(); }
-                    }
+                    for scene in &scenes { scene.drop(); }
                 },
                 Event::RedrawRequested(_) => {
                     unsafe { gl::Clear(gl::COLOR_BUFFER_BIT); }
