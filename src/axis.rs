@@ -1,7 +1,7 @@
 extern crate gl;
 extern crate glam;
 extern crate alloc;
-use glam::Mat4;
+use glam::{Mat4, Vec4};
 use crate::gl_wrap::{Program, Buffer, VertexArray};
 use crate::scene::{Scene, DrawPass};
 use std::ffi::CString;
@@ -17,6 +17,7 @@ const DEFAULT_AXIS: [PosVert; 6] = [
     PosVert([0.0, 0.0, 0.0]),
     PosVert([0.0, 0.0, 1.0])
 ];
+const DEFAULT_COLOR: Vec4 = Vec4::new(1.0, 1.0, 1.0, 1.0);
 
 pub struct Axis {
     pub scene: Scene
@@ -25,8 +26,8 @@ pub struct Axis {
 impl Axis {
     pub fn new(mvp: &Mat4) -> Result<Self, AxisError> {
         let line_program = Program::new_from_files(
-            "./shaders/line_vert.glsl",
-            "./shaders/line_frag.glsl"
+            "./shaders/solid_vert.glsl",
+            "./shaders/solid_frag.glsl"
         )?;
         let line_buffer = Buffer::new();
         line_buffer.set_data(&DEFAULT_AXIS, gl::STATIC_DRAW);
@@ -41,11 +42,14 @@ impl Axis {
         let scene = Scene::new(draws, programs, buffers, attribs);
 
         let mvp_cname = CString::new("mvp")?;
+        let color_cname = CString::new("color")?;
         for program in &scene.programs {
             program.apply();
             unsafe {
-                let location = gl::GetUniformLocation(program.id, mvp_cname.as_ptr());
-                gl::UniformMatrix4fv(location, 1, gl::FALSE, &mvp.to_cols_array()[0]);
+                let mvp_loc = gl::GetUniformLocation(program.id, mvp_cname.as_ptr());
+                gl::UniformMatrix4fv(mvp_loc, 1, gl::FALSE, &mvp.to_cols_array()[0]);
+                let color_loc = gl::GetUniformLocation(program.id, color_cname.as_ptr());
+                gl::Uniform4fv(color_loc, 1, &DEFAULT_COLOR[0]);
             }
         }
 

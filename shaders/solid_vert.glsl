@@ -1,4 +1,5 @@
 #version 330
+
 in vec3 position;
 uniform mat4 mvp;
 
