@@ -1,6 +1,10 @@
 extern crate gl;
+extern crate glam;
+extern crate alloc;
+use glam::Mat4;
 use crate::gl_wrap::{Program, Buffer, VertexArray};
 use crate::scene::{Scene, DrawPass};
+use std::ffi::CString;
 
 type Pos = [f32; 3];
 #[repr(C, packed)]
@@ -15,14 +19,14 @@ const DEFAULT_AXIS: [PosVert; 6] = [
 ];
 
 pub struct Axis {
-    scene: Scene
+    pub scene: Scene
 }
 
 impl Axis {
-    pub fn new() -> Result<Self, AxisError> {
+    pub fn new(mvp: &Mat4) -> Result<Self, AxisError> {
         let line_program = Program::new_from_files(
-            "./shaders/vert.glsl",
-            "./shaders/frag.glsl"
+            "./shaders/line_vert.glsl",
+            "./shaders/line_frag.glsl"
         )?;
         let line_buffer = Buffer::new();
         line_buffer.set_data(&DEFAULT_AXIS, gl::STATIC_DRAW);
@@ -35,11 +39,17 @@ impl Axis {
         let attribs = vec![line_attrib];
         let draws = vec![DrawPass::new(gl::LINES, 0, 0, 0, 0, 6)];
         let scene = Scene::new(draws, programs, buffers, attribs);
-        Ok(Self { scene })
-    }
 
-    pub fn get_scene(self) -> Scene {
-        self.scene
+        let mvp_cname = CString::new("mvp")?;
+        for program in &scene.programs {
+            program.apply();
+            unsafe {
+                let location = gl::GetUniformLocation(program.id, mvp_cname.as_ptr());
+                gl::UniformMatrix4fv(location, 1, gl::FALSE, &mvp.to_cols_array()[0]);
+            }
+        }
+
+        Ok(Self { scene })
     }
 }
 
@@ -47,8 +57,11 @@ extern crate thiserror;
 use thiserror::Error;
 extern crate glutin;
 use crate::gl_wrap::ShaderError;
+use std::ffi::NulError;
 #[derive(Error, Debug)]
 pub enum AxisError {
     #[error("{0}")]
-    ShaderError(#[from] ShaderError)
+    ShaderError(#[from] ShaderError),
+    #[error("{0}")]
+    NulError(#[from] NulError)
 }

@@ -4,6 +4,7 @@ use glutin::{ContextWrapper, ContextBuilder, GlRequest, Api, CreationError, Poss
 use glutin::event_loop::{EventLoop, ControlFlow};
 use glutin::event::{Event, WindowEvent};
 use glutin::window::WindowBuilder;
+use glutin::dpi::LogicalSize;
 use gl::types::{GLuint, GLint, GLenum, GLsizeiptr};
 use std::ffi::{CString, NulError};
 use std::string::FromUtf8Error;
@@ -17,8 +18,10 @@ pub struct Window {
 
 impl Window {
     // initialize window with OpenGl 3.3 context
-    pub fn new(title: &str) -> Result<Self, CreationError> {
-        let window = WindowBuilder::new().with_title(title);
+    pub fn new(title: &str, width: f64, height: f64) -> Result<Self, CreationError> {
+        let window = WindowBuilder::new()
+            .with_title(title)
+            .with_inner_size(LogicalSize::new(width, height));
         let event_loop = EventLoop::new();
         let ctx = ContextBuilder::new()
             .with_gl(GlRequest::Specific(Api::OpenGl, (3, 3)))

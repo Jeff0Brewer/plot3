@@ -1,4 +1,6 @@
 extern crate gl;
+extern crate glam;
+use glam::{Mat4, Vec3};
 use crate::gl_wrap::Window;
 use crate::axis::Axis;
 use crate::scene::Scene;
@@ -10,17 +12,25 @@ pub struct Plot {
 }
 
 impl Plot {
-    pub fn new(title: &str) -> Result<Self, PlotError> {
-        let window = Window::new(title)?;
+    pub fn new(title: &str, width: f64, height: f64) -> Result<Self, PlotError> {
+        let window = Window::new(title, width, height)?;
         let scene = Scene::new_empty();
-        let axis = Axis::new()?;
+
+        let fov: f32 = 70.0 * 3.14/180.0;
+        let aspect: f32 = (width / height) as f32;
+        let proj_matrix = Mat4::perspective_rh_gl(fov, aspect, 0.0, 10.0);
+        let eye = Vec3::new(2.0, 2.0, 2.0);
+        let view_matrix = Mat4::look_at_rh(eye, Vec3::ZERO, Vec3::Y);
+        let mvp = proj_matrix.mul_mat4(&view_matrix);
+        let axis = Axis::new(&mvp)?;
+
         unsafe { gl::ClearColor(0.1, 0.1, 0.1, 1.0); }
+
         Ok(Self { window, scene, axis })
     }
 
     pub fn display(self) {
-        let axis_scene = self.axis.get_scene();
-        self.window.run(vec![axis_scene, self.scene]);
+        self.window.run(vec![self.axis.scene, self.scene]);
     }
 }
 
