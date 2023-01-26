@@ -1,4 +1,3 @@
-extern crate gl;
 mod plot;
 mod axis;
 mod scene;
