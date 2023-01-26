@@ -5,6 +5,11 @@ use crate::gl_wrap::Window;
 use crate::axis::Axis;
 use crate::scene::Scene;
 
+const DEFAULT_FOV: f32 = 70.0 * 3.14 / 180.0;
+const CAMERA_NEAR: f32 = 0.0;
+const CAMERA_FAR: f32 = 10.0;
+const DEFAULT_EYE: Vec3 = Vec3::new(1.25, 1.25, 1.25);
+
 pub struct Plot {
     window: Window,
     scene: Scene,
@@ -16,11 +21,17 @@ impl Plot {
         let window = Window::new(title, width, height)?;
         let scene = Scene::new_empty();
 
-        let fov: f32 = 70.0 * 3.14/180.0;
-        let aspect: f32 = (width / height) as f32;
-        let proj_matrix = Mat4::perspective_rh_gl(fov, aspect, 0.0, 10.0);
-        let eye = Vec3::new(2.0, 2.0, 2.0);
-        let view_matrix = Mat4::look_at_rh(eye, Vec3::ZERO, Vec3::Y);
+        let proj_matrix = Mat4::perspective_rh_gl(
+            DEFAULT_FOV,
+            (width / height) as f32,
+            CAMERA_NEAR,
+            CAMERA_FAR
+        );
+        let view_matrix = Mat4::look_at_rh(
+            DEFAULT_EYE,
+            Vec3::ZERO,
+            Vec3::Y
+        );
         let mvp = proj_matrix.mul_mat4(&view_matrix);
         let axis = Axis::new(&mvp)?;
 
