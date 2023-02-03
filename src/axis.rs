@@ -59,7 +59,6 @@ impl Axis {
 
 extern crate thiserror;
 use thiserror::Error;
-extern crate glutin;
 use crate::gl_wrap::ShaderError;
 use std::ffi::NulError;
 #[derive(Error, Debug)]
