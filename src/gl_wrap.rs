@@ -221,6 +221,37 @@ impl VertexArray {
     }
 }
 
+trait UniformSetter {
+    fn apply(&self);
+}
+
+pub struct UniformMat4 {
+    pub location: i32,
+    pub mat4: [f32; 16]
+}
+
+pub struct UniformVec4 {
+    pub location: i32,
+    pub vec4: [f32; 4]
+}
+
+impl UniformSetter for UniformMat4 {
+    fn apply(&self) {
+        unsafe {
+            gl::UniformMatrix4fv(self.location, 1, gl::FALSE, &self.mat4[0]);
+        }
+    }
+}
+
+impl UniformSetter for UniformVec4 {
+    fn apply(&self) {
+        unsafe {
+            gl::Uniform4fv(self.location, 1, &self.vec4[0]);
+        }
+    }
+}
+
+
 extern crate thiserror;
 use thiserror::Error;
 #[derive(Error, Debug)]
