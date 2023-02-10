@@ -11,13 +11,14 @@ const DEFAULT_FOV: f32 = 70.0 * 3.14 / 180.0;
 const CAMERA_NEAR: f32 = 0.0;
 const CAMERA_FAR: f32 = 10.0;
 
-pub struct Plot {
+pub struct Plot<'a> {
     window: Window,
     scene: Scene,
-    pub axis: Axis
+    mvp: [f32; 16],
+    pub axis: Axis<'a>
 }
 
-impl Plot {
+impl<'a> Plot<'a> {
     pub fn new(title: &str, width: f64, height: f64) -> Result<Self, PlotError> {
         let window = Window::new(title, width, height)?;
         let scene = Scene::new_empty();
@@ -33,16 +34,18 @@ impl Plot {
             Vec3::ZERO,
             Vec3::Y
         );
-        let mvp = proj_matrix.mul_mat4(&view_matrix);
-        let axis = Axis::new(&mvp)?;
+        let mvp = proj_matrix.mul_mat4(&view_matrix).to_cols_array();
+        let axis = Axis::new();
 
         unsafe { gl::ClearColor(0.1, 0.1, 0.1, 1.0); }
 
-        Ok(Self { window, scene, axis })
+        Ok(Self { window, scene, mvp, axis })
     }
 
-    pub fn display(self) {
-        self.window.run(vec![self.axis.scene, self.scene]);
+    pub fn display(self) -> Result<(), PlotError> {
+        let axis_scene = self.axis.get_scene(&self.mvp)?;
+        self.window.run(vec![axis_scene, self.scene]);
+        Ok(())
     }
 }
 

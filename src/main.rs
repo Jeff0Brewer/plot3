@@ -6,5 +6,5 @@ use plot::Plot;
 
 fn main() {
     let plot = Plot::new("test", 500.0, 500.0).unwrap();
-    plot.display();
+    plot.display().unwrap();
 }
