@@ -1,7 +1,6 @@
 extern crate gl;
 extern crate glam;
 extern crate alloc;
-use glam::{Vec4};
 use crate::gl_wrap::{Program, Buffer, VertexArray};
 use crate::scene::{Scene, DrawPass};
 use std::ffi::CString;
@@ -17,7 +16,7 @@ const DEFAULT_AXIS: [PosVert; 6] = [
     PosVert([0.0, 0.0, 0.0]),
     PosVert([0.0, 0.0, 1.0])
 ];
-const DEFAULT_COLOR: Vec4 = Vec4::new(1.0, 1.0, 1.0, 1.0);
+const DEFAULT_COLOR: [f32; 4] = [1.0, 1.0, 1.0, 1.0];
 
 pub struct Axis<'a> {
     border: &'a [PosVert]
