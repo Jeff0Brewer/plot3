@@ -1,45 +1,10 @@
-extern crate gl;
+mod plot;
+mod axis;
+mod scene;
 mod gl_wrap;
-use gl_wrap::{Window, Shader, Program, Buffer, VertexArray};
-
-type Pos = [f32; 2];
-type Col = [f32; 3];
-#[repr(C, packed)]
-struct Vertex(Pos, Col);
-const VERTICES: [Vertex; 3] = [
-    Vertex([-0.5, -0.5], [1.0, 0.0, 0.0]),
-    Vertex([0.5,  -0.5], [0.0, 1.0, 0.0]),
-    Vertex([0.0,   0.5], [0.0, 0.0, 1.0])
-];
+use plot::Plot;
 
 fn main() {
-    let window = Window::new("gl").unwrap();
-
-    let vertex_shader = Shader::new("./shaders/vert.glsl", gl::VERTEX_SHADER).unwrap();
-    let fragment_shader = Shader::new("./shaders/frag.glsl", gl::FRAGMENT_SHADER).unwrap();
-    let program = Program::new(&vertex_shader, &fragment_shader).unwrap();
-    vertex_shader.drop();
-    fragment_shader.drop();
-
-    let vertex_buffer = Buffer::new();
-    vertex_buffer.set_data(&VERTICES, gl::STATIC_DRAW);
-
-    let vertex_array = VertexArray::new();
-    let pos_index = program.get_attrib_location("position").unwrap();
-    vertex_array.set_attribute::<Vertex>(pos_index, 2, 0);
-    let col_index = program.get_attrib_location("color").unwrap();
-    vertex_array.set_attribute::<Vertex>(col_index, 3, 2);
-
-    const TRI_IND: usize = 0;
-    fn draw(programs: &Vec<Program>, buffers: &Vec<Buffer>, attribs: &Vec<VertexArray>) {
-        programs[TRI_IND].apply();
-        buffers[TRI_IND].bind();
-        attribs[TRI_IND].bind();
-        unsafe {
-            gl::ClearColor(0.1, 0.1, 0.1, 1.0);
-            gl::Clear(gl::COLOR_BUFFER_BIT);
-            gl::DrawArrays(gl::TRIANGLES, 0, 3);
-        }
-    }
-    window.run(draw, vec![program], vec![vertex_buffer], vec![vertex_array]);
+    let plot = Plot::new("test", 500.0, 500.0).unwrap();
+    plot.display().unwrap();
 }
