@@ -234,13 +234,16 @@ impl LocationMap {
         Self { locations }
     }
 
-    pub fn get(&mut self, program: Program, name: &str) -> Result<i32, ShaderError> {
+    pub fn get(&mut self, program: &Program, name: &CString) -> Result<i32, ShaderError> {
         match self.locations.get(&program.id) {
             // return stored location if program seen before
             Some(&stored_location) => Ok(stored_location),
             // store and return location from program if not already seen
             None => {
-                let new_location = program.get_attrib_location(name)? as i32;
+                let new_location: i32;
+                unsafe {
+                    new_location = gl::GetUniformLocation(program.id, name.as_ptr());
+                }
                 self.locations.insert(program.id, new_location);
                 Ok(new_location)
             }
@@ -248,38 +251,42 @@ impl LocationMap {
     }
 }
 
-struct UniformMatrix {
-    name: String,
+pub struct UniformMatrix {
+    name: CString,
     locations: LocationMap,
     matrix: [f32; 16]
 }
 
 impl UniformMatrix {
-    pub fn new(name: String, matrix: [f32; 16]) -> Self {
+    pub fn new(name: &str, matrix: [f32; 16]) -> Result<Self, NulError> {
         let locations = LocationMap::new();
-        Self { name, locations, matrix }
+        let cname = CString::new(name)?;
+        Ok(Self { name: cname, locations, matrix })
     }
 
-    pub fn apply(&mut self, program: Program) -> Result<(), UniformError> {
+    pub fn apply(&mut self, program: &Program) -> Result<(), UniformError> {
         let location = self.locations.get(program, &self.name)?;
-        unsafe{ gl::UniformMatrix4fv(location, 1, gl::FALSE, &self.matrix[0]); }
+        unsafe{
+            gl::UniformMatrix4fv(location, 1, gl::FALSE, &self.matrix[0]);
+        }
         Ok(())
     }
 }
 
-struct UniformVector {
-    name: String,
+pub struct UniformVector {
+    name: CString,
     locations: LocationMap,
     vector: [f32; 4]
 }
 
 impl UniformVector {
-    pub fn new(name: String, vector: [f32; 4]) -> Self {
+    pub fn new(name: &str, vector: [f32; 4]) -> Result<Self, NulError> {
         let locations = LocationMap::new();
-        Self { name, locations, vector }
+        let cname = CString::new(name)?;
+        Ok(Self { name: cname, locations, vector })
     }
 
-    pub fn apply(&mut self, program: Program) -> Result<(), UniformError> {
+    pub fn apply(&mut self, program: &Program) -> Result<(), UniformError> {
         let location = self.locations.get(program, &self.name)?;
         unsafe { gl::Uniform4fv(location, 1, &self.vector[0]); }
         Ok(())
