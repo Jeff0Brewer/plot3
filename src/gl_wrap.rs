@@ -6,8 +6,9 @@ use glutin::event::{Event, WindowEvent};
 use glutin::window::WindowBuilder;
 use glutin::dpi::LogicalSize;
 use gl::types::{GLuint, GLint, GLenum, GLsizeiptr};
-use std::ffi::{CString, NulError};
+use std::collections::HashMap;
 use std::string::FromUtf8Error;
+use std::ffi::{CString, NulError};
 use std::{ptr, fs};
 use crate::scene::Scene;
 
@@ -221,44 +222,79 @@ impl VertexArray {
     }
 }
 
-trait UniformSetter {
-    fn apply(&self);
+// struct to store single uniform locations across multiple programs
+struct LocationMap {
+    locations: HashMap<GLuint, i32>
 }
 
-pub struct UniformMat4 {
-    pub location: i32,
-    pub mat4: [f32; 16]
-}
+impl LocationMap {
+    pub fn new() -> Self {
+        // hashmap to map program id into location
+        let locations = HashMap::<GLuint, i32>::new();
+        Self { locations }
+    }
 
-pub struct UniformVec4 {
-    pub location: i32,
-    pub vec4: [f32; 4]
-}
-
-impl UniformSetter for UniformMat4 {
-    fn apply(&self) {
-        unsafe {
-            gl::UniformMatrix4fv(self.location, 1, gl::FALSE, &self.mat4[0]);
+    pub fn get(&mut self, program: Program, name: &str) -> Result<i32, ShaderError> {
+        match self.locations.get(&program.id) {
+            // return stored location if program seen before
+            Some(&stored_location) => Ok(stored_location),
+            // store and return location from program if not already seen
+            None => {
+                let new_location = program.get_attrib_location(name)? as i32;
+                self.locations.insert(program.id, new_location);
+                Ok(new_location)
+            }
         }
     }
 }
 
-impl UniformSetter for UniformVec4 {
-    fn apply(&self) {
-        unsafe {
-            gl::Uniform4fv(self.location, 1, &self.vec4[0]);
-        }
+struct UniformMatrix {
+    name: String,
+    locations: LocationMap,
+    matrix: [f32; 16]
+}
+
+impl UniformMatrix {
+    pub fn new(name: String, matrix: [f32; 16]) -> Self {
+        let locations = LocationMap::new();
+        Self { name, locations, matrix }
+    }
+
+    pub fn apply(&mut self, program: Program) -> Result<(), UniformError> {
+        let location = self.locations.get(program, &self.name)?;
+        unsafe{ gl::UniformMatrix4fv(location, 1, gl::FALSE, &self.matrix[0]); }
+        Ok(())
+    }
+}
+
+struct UniformVector {
+    name: String,
+    locations: LocationMap,
+    vector: [f32; 4]
+}
+
+impl UniformVector {
+    pub fn new(name: String, vector: [f32; 4]) -> Self {
+        let locations = LocationMap::new();
+        Self { name, locations, vector }
+    }
+
+    pub fn apply(&mut self, program: Program) -> Result<(), UniformError> {
+        let location = self.locations.get(program, &self.name)?;
+        unsafe { gl::Uniform4fv(location, 1, &self.vector[0]); }
+        Ok(())
     }
 }
 
 
 extern crate thiserror;
 use thiserror::Error;
+
 #[derive(Error, Debug)]
 pub enum ShaderError {
-    #[error("Compilation Failed: {0}")]
+    #[error("Compilation failed: {0}")]
     CompilationError(String),
-    #[error("Linking Failed: {0}")]
+    #[error("Linking failed: {0}")]
     LinkingError(String),
     #[error{"{0}"}]
     Utf8Error(#[from] FromUtf8Error),
@@ -266,4 +302,10 @@ pub enum ShaderError {
     NulError(#[from] NulError),
     #[error{"{0}"}]
     IoError(#[from] std::io::Error)
+}
+
+#[derive(Error, Debug)]
+pub enum UniformError {
+    #[error("{0}")]
+    ShaderError(#[from] ShaderError)
 }
