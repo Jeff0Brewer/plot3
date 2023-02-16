@@ -49,7 +49,7 @@ impl Window {
                 },
                 Event::RedrawRequested(_) => {
                     unsafe { gl::Clear(gl::COLOR_BUFFER_BIT); }
-                    for scene in &scenes { scene.draw(); }
+                    for scene in &scenes { scene.draw().unwrap(); }
                     self.ctx.swap_buffers().unwrap();
                 },
                 _ => ()

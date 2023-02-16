@@ -40,15 +40,14 @@ impl<'a> Axis<'a> {
 
         let mvp_uniform = UniformMatrix::new("mvp", mvp, vec![line_program.id])?;
         let color_uniform = UniformVector::new("color", DEFAULT_COLOR.clone(), vec![line_program.id])?;
-        line_program.apply();
-        mvp_uniform.apply(line_program.id)?;
-        color_uniform.apply(line_program.id)?;
 
         let programs = vec![line_program];
         let buffers = vec![line_buffer];
         let attribs = vec![line_attrib];
-        let draw_passes = vec![DrawPass::new(gl::LINES, 0, 0, 0, 0, 6)];
-        let scene = Scene::new(draw_passes, programs, buffers, attribs);
+        let matrices = vec![mvp_uniform];
+        let vectors = vec![color_uniform];
+        let draw_passes = vec![DrawPass::new(gl::LINES, 0, 0, 0, vec![0], vec![0], 0, 6)];
+        let scene = Scene::new(draw_passes, programs, buffers, attribs, matrices, vectors);
         Ok(scene)
     }
 }
