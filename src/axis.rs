@@ -1,9 +1,8 @@
 extern crate gl;
 extern crate glam;
 extern crate alloc;
-use crate::gl_wrap::{Program, Buffer, VertexArray};
+use crate::gl_wrap::{Program, Buffer, VertexArray, UniformMatrix, UniformVector};
 use crate::scene::{Scene, DrawPass};
-use std::ffi::CString;
 
 type Pos = [f32; 3];
 #[repr(C, packed)]
@@ -28,7 +27,7 @@ impl<'a> Axis<'a> {
         Self { border }
     }
 
-    pub fn get_scene(&self, &mvp: &[f32; 16]) -> Result<Scene, AxisError> {
+    pub fn get_scene(&self, mvp: [f32; 16]) -> Result<Scene, AxisError> {
         let line_program = Program::new_from_files(
             "./shaders/solid_vert.glsl",
             "./shaders/solid_frag.glsl"
@@ -39,33 +38,30 @@ impl<'a> Axis<'a> {
         let pos_loc = line_program.get_attrib_location("position")?;
         line_attrib.set_attribute::<PosVert>(pos_loc, 3, 0);
 
-        let mvp_cname = CString::new("mvp")?;
-        let color_cname = CString::new("color")?;
-        line_program.apply();
-        unsafe {
-            let mvp_loc = gl::GetUniformLocation(line_program.id, mvp_cname.as_ptr());
-            gl::UniformMatrix4fv(mvp_loc, 1, gl::FALSE, &mvp[0]);
-            let color_loc = gl::GetUniformLocation(line_program.id, color_cname.as_ptr());
-            gl::Uniform4fv(color_loc, 1, &DEFAULT_COLOR[0]);
-        }
+        let mvp_uniform = UniformMatrix::new("mvp", mvp, vec![line_program.id])?;
+        let color_uniform = UniformVector::new("color", DEFAULT_COLOR.clone(), vec![line_program.id])?;
 
         let programs = vec![line_program];
         let buffers = vec![line_buffer];
         let attribs = vec![line_attrib];
-        let draw_passes = vec![DrawPass::new(gl::LINES, 0, 0, 0, 0, 6)];
-        let scene = Scene::new(draw_passes, programs, buffers, attribs);
+        let matrices = vec![mvp_uniform];
+        let vectors = vec![color_uniform];
+        let draw_passes = vec![DrawPass::new(gl::LINES, 0, 0, 0, vec![0], vec![0], 0, 6)];
+        let scene = Scene::new(draw_passes, programs, buffers, attribs, matrices, vectors);
         Ok(scene)
     }
 }
 
 extern crate thiserror;
 use thiserror::Error;
-use crate::gl_wrap::ShaderError;
+use crate::gl_wrap::{ShaderError, UniformError};
 use std::ffi::NulError;
 #[derive(Error, Debug)]
 pub enum AxisError {
     #[error("{0}")]
     ShaderError(#[from] ShaderError),
+    #[error("{0}")]
+    UniformError(#[from] UniformError),
     #[error("{0}")]
     NulError(#[from] NulError)
 }

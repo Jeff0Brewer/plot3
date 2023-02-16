@@ -43,7 +43,7 @@ impl<'a> Plot<'a> {
     }
 
     pub fn display(self) -> Result<(), PlotError> {
-        let axis_scene = self.axis.get_scene(&self.mvp)?;
+        let axis_scene = self.axis.get_scene(self.mvp.clone())?;
         self.window.run(vec![axis_scene, self.scene]);
         Ok(())
     }

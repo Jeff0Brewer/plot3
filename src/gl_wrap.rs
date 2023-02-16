@@ -6,8 +6,9 @@ use glutin::event::{Event, WindowEvent};
 use glutin::window::WindowBuilder;
 use glutin::dpi::LogicalSize;
 use gl::types::{GLuint, GLint, GLenum, GLsizeiptr};
-use std::ffi::{CString, NulError};
+use std::collections::HashMap;
 use std::string::FromUtf8Error;
+use std::ffi::{CString, NulError};
 use std::{ptr, fs};
 use crate::scene::Scene;
 
@@ -48,7 +49,7 @@ impl Window {
                 },
                 Event::RedrawRequested(_) => {
                     unsafe { gl::Clear(gl::COLOR_BUFFER_BIT); }
-                    for scene in &scenes { scene.draw(); }
+                    for scene in &scenes { scene.draw().unwrap(); }
                     self.ctx.swap_buffers().unwrap();
                 },
                 _ => ()
@@ -221,13 +222,73 @@ impl VertexArray {
     }
 }
 
+fn get_uniform_locations(name: &str, program_ids: Vec<GLuint>) -> Result<HashMap<GLuint, i32>, NulError> {
+    let mut locations = HashMap::new();
+    let cname = CString::new(name)?;
+    for id in program_ids {
+        let location: i32;
+        unsafe { location = gl::GetUniformLocation(id, cname.as_ptr()); }
+        locations.insert(id, location);
+    };
+    Ok(locations)
+}
+
+pub struct UniformMatrix {
+    locations: HashMap<GLuint, i32>,
+    matrix: [f32; 16]
+}
+
+impl UniformMatrix {
+    pub fn new(name: &str, matrix: [f32; 16], program_ids: Vec<GLuint>) -> Result<Self, UniformError> {
+        let locations = get_uniform_locations(name, program_ids)?;
+        Ok(Self { locations, matrix })
+    }
+
+    pub fn apply(&self, program_id: GLuint) -> Result<(), UniformError> {
+        match self.locations.get(&program_id) {
+            Some(&location) => {
+                unsafe { gl::UniformMatrix4fv(location, 1, gl::FALSE, &self.matrix[0]); }
+                Ok(())
+            },
+            None => {
+                Err(UniformError::InvalidLocationError(program_id))
+            }
+        }
+    }
+}
+
+pub struct UniformVector {
+    locations: HashMap<GLuint, i32>,
+    vector: [f32; 4]
+}
+
+impl UniformVector {
+    pub fn new(name: &str, vector: [f32; 4], program_ids: Vec<GLuint>) -> Result<Self, UniformError> {
+        let locations = get_uniform_locations(name, program_ids)?;
+        Ok(Self { locations, vector })
+    }
+
+    pub fn apply(&self, program_id: GLuint) -> Result<(), UniformError> {
+        match self.locations.get(&program_id) {
+            Some(&location) => {
+                unsafe { gl::Uniform4fv(location, 1, &self.vector[0]); }
+                Ok(())
+            },
+            None => {
+                Err(UniformError::InvalidLocationError(program_id))
+            }
+        }
+    }
+}
+
 extern crate thiserror;
 use thiserror::Error;
+
 #[derive(Error, Debug)]
 pub enum ShaderError {
-    #[error("Compilation Failed: {0}")]
+    #[error("Compilation failed: {0}")]
     CompilationError(String),
-    #[error("Linking Failed: {0}")]
+    #[error("Linking failed: {0}")]
     LinkingError(String),
     #[error{"{0}"}]
     Utf8Error(#[from] FromUtf8Error),
@@ -235,4 +296,14 @@ pub enum ShaderError {
     NulError(#[from] NulError),
     #[error{"{0}"}]
     IoError(#[from] std::io::Error)
+}
+
+#[derive(Error, Debug)]
+pub enum UniformError {
+    #[error("{0}")]
+    ShaderError(#[from] ShaderError),
+    #[error("{0}")]
+    NulError(#[from] NulError),
+    #[error("Location not found for program: {0}")]
+    InvalidLocationError(GLuint)
 }
