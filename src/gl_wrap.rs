@@ -222,7 +222,7 @@ impl VertexArray {
     }
 }
 
-fn get_location_map(name: &str, program_ids: Vec<GLuint>) -> Result<HashMap<GLuint, i32>, NulError> {
+fn get_uniform_locations(name: &str, program_ids: Vec<GLuint>) -> Result<HashMap<GLuint, i32>, NulError> {
     let mut locations = HashMap::new();
     let cname = CString::new(name)?;
     for id in program_ids {
@@ -240,7 +240,7 @@ pub struct UniformMatrix {
 
 impl UniformMatrix {
     pub fn new(name: &str, matrix: [f32; 16], program_ids: Vec<GLuint>) -> Result<Self, UniformError> {
-        let locations = get_location_map(name, program_ids)?;
+        let locations = get_uniform_locations(name, program_ids)?;
         Ok(Self { locations, matrix })
     }
 
@@ -264,7 +264,7 @@ pub struct UniformVector {
 
 impl UniformVector {
     pub fn new(name: &str, vector: [f32; 4], program_ids: Vec<GLuint>) -> Result<Self, UniformError> {
-        let locations = get_location_map(name, program_ids)?;
+        let locations = get_uniform_locations(name, program_ids)?;
         Ok(Self { locations, vector })
     }
 
