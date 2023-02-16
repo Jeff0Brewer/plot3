@@ -222,77 +222,64 @@ impl VertexArray {
     }
 }
 
-// struct to store single uniform locations across multiple programs
-struct LocationMap {
-    locations: HashMap<GLuint, i32>
+fn get_location_map(name: &str, program_ids: Vec<GLuint>) -> Result<HashMap<GLuint, i32>, NulError> {
+    let mut locations = HashMap::new();
+    let cname = CString::new(name)?;
+    for id in program_ids {
+        let location: i32;
+        unsafe { location = gl::GetUniformLocation(id, cname.as_ptr()); }
+        locations.insert(id, location);
+    };
+    Ok(locations)
 }
 
-impl LocationMap {
-    pub fn new() -> Self {
-        // hashmap to map program id into location
-        let locations = HashMap::<GLuint, i32>::new();
-        Self { locations }
+pub struct UniformMatrix {
+    locations: HashMap<GLuint, i32>,
+    matrix: [f32; 16]
+}
+
+impl UniformMatrix {
+    pub fn new(name: &str, matrix: [f32; 16], program_ids: Vec<GLuint>) -> Result<Self, UniformError> {
+        let locations = get_location_map(name, program_ids)?;
+        Ok(Self { locations, matrix })
     }
 
-    pub fn get(&mut self, program: &Program, name: &CString) -> Result<i32, ShaderError> {
-        match self.locations.get(&program.id) {
-            // return stored location if program seen before
-            Some(&stored_location) => Ok(stored_location),
-            // store and return location from program if not already seen
+    pub fn apply(&self, program_id: GLuint) -> Result<(), UniformError> {
+        match self.locations.get(&program_id) {
+            Some(&location) => {
+                unsafe { gl::UniformMatrix4fv(location, 1, gl::FALSE, &self.matrix[0]); }
+                Ok(())
+            },
             None => {
-                let new_location: i32;
-                unsafe {
-                    new_location = gl::GetUniformLocation(program.id, name.as_ptr());
-                }
-                self.locations.insert(program.id, new_location);
-                Ok(new_location)
+                Err(UniformError::InvalidLocationError(program_id))
             }
         }
     }
 }
 
-pub struct UniformMatrix {
-    name: CString,
-    locations: LocationMap,
-    matrix: [f32; 16]
-}
-
-impl UniformMatrix {
-    pub fn new(name: &str, matrix: [f32; 16]) -> Result<Self, NulError> {
-        let locations = LocationMap::new();
-        let cname = CString::new(name)?;
-        Ok(Self { name: cname, locations, matrix })
-    }
-
-    pub fn apply(&mut self, program: &Program) -> Result<(), UniformError> {
-        let location = self.locations.get(program, &self.name)?;
-        unsafe{
-            gl::UniformMatrix4fv(location, 1, gl::FALSE, &self.matrix[0]);
-        }
-        Ok(())
-    }
-}
-
 pub struct UniformVector {
-    name: CString,
-    locations: LocationMap,
+    locations: HashMap<GLuint, i32>,
     vector: [f32; 4]
 }
 
 impl UniformVector {
-    pub fn new(name: &str, vector: [f32; 4]) -> Result<Self, NulError> {
-        let locations = LocationMap::new();
-        let cname = CString::new(name)?;
-        Ok(Self { name: cname, locations, vector })
+    pub fn new(name: &str, vector: [f32; 4], program_ids: Vec<GLuint>) -> Result<Self, UniformError> {
+        let locations = get_location_map(name, program_ids)?;
+        Ok(Self { locations, vector })
     }
 
-    pub fn apply(&mut self, program: &Program) -> Result<(), UniformError> {
-        let location = self.locations.get(program, &self.name)?;
-        unsafe { gl::Uniform4fv(location, 1, &self.vector[0]); }
-        Ok(())
+    pub fn apply(&self, program_id: GLuint) -> Result<(), UniformError> {
+        match self.locations.get(&program_id) {
+            Some(&location) => {
+                unsafe { gl::Uniform4fv(location, 1, &self.vector[0]); }
+                Ok(())
+            },
+            None => {
+                Err(UniformError::InvalidLocationError(program_id))
+            }
+        }
     }
 }
-
 
 extern crate thiserror;
 use thiserror::Error;
@@ -314,5 +301,9 @@ pub enum ShaderError {
 #[derive(Error, Debug)]
 pub enum UniformError {
     #[error("{0}")]
-    ShaderError(#[from] ShaderError)
+    ShaderError(#[from] ShaderError),
+    #[error("{0}")]
+    NulError(#[from] NulError),
+    #[error("Location not found for program: {0}")]
+    InvalidLocationError(GLuint)
 }

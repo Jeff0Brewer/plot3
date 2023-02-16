@@ -38,11 +38,11 @@ impl<'a> Axis<'a> {
         let pos_loc = line_program.get_attrib_location("position")?;
         line_attrib.set_attribute::<PosVert>(pos_loc, 3, 0);
 
-        let mut mvp_uniform = UniformMatrix::new("mvp", mvp)?;
-        let mut color_uniform = UniformVector::new("color", DEFAULT_COLOR.clone())?;
+        let mvp_uniform = UniformMatrix::new("mvp", mvp, vec![line_program.id])?;
+        let color_uniform = UniformVector::new("color", DEFAULT_COLOR.clone(), vec![line_program.id])?;
         line_program.apply();
-        mvp_uniform.apply(&line_program)?;
-        color_uniform.apply(&line_program)?;
+        mvp_uniform.apply(line_program.id)?;
+        color_uniform.apply(line_program.id)?;
 
         let programs = vec![line_program];
         let buffers = vec![line_buffer];
