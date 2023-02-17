@@ -14,8 +14,8 @@ type Pos = [f32; 3];
 struct PosVert(Pos);
 
 const ARROW_SIZE: f32 = 0.02;
-fn get_arrow_axis(bounds: [f32; 3]) -> ([PosVert; 6], [PosVert; 9]) {
-    let lines = [
+fn get_arrow_axis(bounds: [f32; 3]) -> (Vec<PosVert>, Vec<PosVert>) {
+    let lines = vec![
         PosVert([0.0, 0.0, 0.0]),
         PosVert([bounds[0], 0.0, 0.0]),
         PosVert([0.0, 0.0, 0.0]),
@@ -23,7 +23,7 @@ fn get_arrow_axis(bounds: [f32; 3]) -> ([PosVert; 6], [PosVert; 9]) {
         PosVert([0.0, 0.0, 0.0]),
         PosVert([0.0, 0.0, bounds[2]])
     ];
-    let tris = [
+    let tris = vec![
         PosVert([bounds[0], 0.0, 0.0]),
         PosVert([bounds[0] - ARROW_SIZE, ARROW_SIZE, 0.0]),
         PosVert([bounds[0] - ARROW_SIZE, -ARROW_SIZE, 0.0]),
@@ -37,8 +37,8 @@ fn get_arrow_axis(bounds: [f32; 3]) -> ([PosVert; 6], [PosVert; 9]) {
     (lines, tris)
 }
 
-fn get_box_axis(bounds: [f32; 3]) -> [PosVert; 12] {
-    let lines = [
+fn get_box_axis(bounds: [f32; 3]) -> (Vec<PosVert>, Vec<PosVert>) {
+    let lines = vec![
         PosVert([bounds[0], bounds[1], 0.0]),
         PosVert([bounds[0], 0.0, 0.0]),
         PosVert([bounds[0], 0.0, 0.0]),
@@ -52,7 +52,8 @@ fn get_box_axis(bounds: [f32; 3]) -> [PosVert; 12] {
         PosVert([0.0, bounds[1], 0.0]),
         PosVert([bounds[0], bounds[1], 0.0]),
     ];
-    lines
+    let tris = vec![];
+    (lines, tris)
 }
 
 pub struct Axis {
@@ -86,25 +87,18 @@ impl Axis {
             "./shaders/solid_vert.glsl",
             "./shaders/solid_frag.glsl"
         )?;
-        let line_buffer = Buffer::new();
-        let tri_buffer = Buffer::new();
-        let line_len: i32;
-        let tri_len: i32;
+
+        let lines: Vec<PosVert>;
+        let tris: Vec<PosVert>;
         match self.border_style {
-            BorderStyle::Arrow => {
-                let (lines, tris) = get_arrow_axis(self.bounds);
-                line_buffer.set_data(&lines, gl::STATIC_DRAW);
-                line_len = lines.len() as i32;
-                tri_buffer.set_data(&tris, gl::STATIC_DRAW);
-                tri_len = tris.len() as i32;
-            },
-            BorderStyle::Box => {
-                let lines = get_box_axis(self.bounds);
-                line_buffer.set_data(&lines, gl::STATIC_DRAW);
-                line_len = lines.len() as i32;
-                tri_len = 0;
-            }
+            BorderStyle::Arrow => { (lines, tris) = get_arrow_axis(self.bounds); },
+            BorderStyle::Box => { (lines, tris) = get_box_axis(self.bounds); }
         }
+        let line_buffer = Buffer::new();
+        line_buffer.set_data(&lines, gl::STATIC_DRAW);
+        let tri_buffer = Buffer::new();
+        tri_buffer.set_data(&tris, gl::STATIC_DRAW);
+
         let pos_loc = solid_program.get_attrib_location("position")?;
         let line_attrib = VertexArray::new();
         line_buffer.bind();
@@ -122,8 +116,8 @@ impl Axis {
         let matrices = vec![mvp_uniform];
         let vectors = vec![color_uniform];
         let draw_passes = vec![
-            DrawPass::new(gl::LINES, 0, 0, 0, vec![0], vec![0], 0, line_len),
-            DrawPass::new(gl::TRIANGLES, 0, 1, 1, vec![0], vec![0], 0, tri_len)
+            DrawPass::new(gl::LINES, 0, 0, 0, vec![0], vec![0], 0, lines.len() as i32),
+            DrawPass::new(gl::TRIANGLES, 0, 1, 1, vec![0], vec![0], 0, tris.len() as i32)
         ];
         let scene = Scene::new(draw_passes, programs, buffers, attribs, matrices, vectors);
         Ok(scene)
