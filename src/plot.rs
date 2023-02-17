@@ -6,7 +6,7 @@ use crate::axis::Axis;
 use crate::scene::Scene;
 
 // values for default camera initialization
-const DEFAULT_EYE: Vec3 = Vec3::new(1.25, 1.25, 1.25);
+const DEFAULT_EYE: Vec3 = Vec3::new(1.5, 1.5, 1.5);
 const DEFAULT_FOV: f32 = 70.0 * 3.14 / 180.0;
 const CAMERA_NEAR: f32 = 0.0;
 const CAMERA_FAR: f32 = 10.0;
