@@ -13,7 +13,7 @@ type Pos = [f32; 3];
 #[repr(C, packed)]
 struct PosVert(Pos);
 
-const ARROW_SIZE: f32 = 0.03;
+const ARROW_SIZE: f32 = 0.02;
 fn get_arrow_axis(bounds: [f32; 3]) -> ([PosVert; 6], [PosVert; 9]) {
     let lines = [
         PosVert([0.0, 0.0, 0.0]),
@@ -37,6 +37,24 @@ fn get_arrow_axis(bounds: [f32; 3]) -> ([PosVert; 6], [PosVert; 9]) {
     (lines, tris)
 }
 
+fn get_box_axis(bounds: [f32; 3]) -> [PosVert; 12] {
+    let lines = [
+        PosVert([bounds[0], bounds[1], 0.0]),
+        PosVert([bounds[0], 0.0, 0.0]),
+        PosVert([bounds[0], 0.0, 0.0]),
+        PosVert([bounds[0], 0.0, bounds[2]]),
+        PosVert([bounds[0], 0.0, bounds[2]]),
+        PosVert([0.0, 0.0, bounds[2]]),
+        PosVert([0.0, 0.0, bounds[2]]),
+        PosVert([0.0, bounds[1], bounds[2]]),
+        PosVert([0.0, bounds[1], bounds[2]]),
+        PosVert([0.0, bounds[1], 0.0]),
+        PosVert([0.0, bounds[1], 0.0]),
+        PosVert([bounds[0], bounds[1], 0.0]),
+    ];
+    lines
+}
+
 const DEFAULT_COLOR: [f32; 4] = [1.0, 1.0, 1.0, 1.0];
 
 pub struct Axis {
@@ -45,7 +63,7 @@ pub struct Axis {
 
 impl Axis {
     pub fn new() -> Self {
-        let border_type = BorderType::Arrow;
+        let border_type = BorderType::Box;
         Self { border_type }
     }
 
@@ -67,7 +85,9 @@ impl Axis {
                 tri_len = tris.len() as i32;
             },
             BorderType::Box => {
-                line_len = 0;
+                let lines = get_box_axis([1.0, 1.0, 1.0]);
+                line_buffer.set_data(&lines, gl::STATIC_DRAW);
+                line_len = lines.len() as i32;
                 tri_len = 0;
             }
         }
