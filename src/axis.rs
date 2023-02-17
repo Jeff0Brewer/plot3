@@ -4,7 +4,7 @@ extern crate alloc;
 use crate::gl_wrap::{Program, Buffer, VertexArray, UniformMatrix, UniformVector};
 use crate::scene::{Scene, DrawPass};
 
-pub enum BorderType {
+pub enum BorderStyle {
     Arrow,
     Box
 }
@@ -57,20 +57,20 @@ fn get_box_axis(bounds: [f32; 3]) -> [PosVert; 12] {
 
 pub struct Axis {
     bounds: [f32; 3],
-    border_type: BorderType,
+    border_style: BorderStyle,
     border_color: [f32; 4]
 }
 
 impl Axis {
     pub fn new() -> Self {
         let bounds = [1.0, 1.0, 1.0];
-        let border_type = BorderType::Box;
+        let border_style = BorderStyle::Box;
         let border_color: [f32; 4] = [1.0, 1.0, 1.0, 1.0];
-        Self { bounds, border_type, border_color }
+        Self { bounds, border_style, border_color }
     }
 
-    pub fn set_border_type(&mut self, border: BorderType) {
-        self.border_type = border;
+    pub fn set_border_style(&mut self, style: BorderStyle) {
+        self.border_style = style;
     }
 
     pub fn set_bounds(&mut self, bounds: [f32; 3]) {
@@ -90,15 +90,15 @@ impl Axis {
         let tri_buffer = Buffer::new();
         let line_len: i32;
         let tri_len: i32;
-        match self.border_type {
-            BorderType::Arrow => {
+        match self.border_style {
+            BorderStyle::Arrow => {
                 let (lines, tris) = get_arrow_axis(self.bounds);
                 line_buffer.set_data(&lines, gl::STATIC_DRAW);
                 line_len = lines.len() as i32;
                 tri_buffer.set_data(&tris, gl::STATIC_DRAW);
                 tri_len = tris.len() as i32;
             },
-            BorderType::Box => {
+            BorderStyle::Box => {
                 let lines = get_box_axis(self.bounds);
                 line_buffer.set_data(&lines, gl::STATIC_DRAW);
                 line_len = lines.len() as i32;
