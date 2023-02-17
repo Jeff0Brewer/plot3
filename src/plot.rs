@@ -11,14 +11,14 @@ const DEFAULT_FOV: f32 = 70.0 * 3.14 / 180.0;
 const CAMERA_NEAR: f32 = 0.0;
 const CAMERA_FAR: f32 = 10.0;
 
-pub struct Plot<'a> {
+pub struct Plot {
     window: Window,
     scene: Scene,
     mvp: [f32; 16],
-    pub axis: Axis<'a>
+    pub axis: Axis
 }
 
-impl<'a> Plot<'a> {
+impl Plot {
     pub fn new(title: &str, width: f64, height: f64) -> Result<Self, PlotError> {
         let window = Window::new(title, width, height)?;
         let scene = Scene::new_empty();
