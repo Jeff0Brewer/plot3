@@ -48,7 +48,7 @@ impl DrawPass {
     ) -> Result<(), UniformError> {
         let program = &programs[self.program_ind];
         program.apply();
-        buffers[self.buffer_ind].bind();
+        //buffers[self.buffer_ind].bind();
         attribs[self.attrib_ind].bind();
         for &i in &self.matrix_inds { matrices[i].apply(program.id)?; }
         for &i in &self.vector_inds { vectors[i].apply(program.id)?; }

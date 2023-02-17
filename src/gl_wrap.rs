@@ -203,13 +203,13 @@ impl VertexArray {
         Self { id }
     }
 
-    pub fn set_attribute<V: Sized>(&self, index: GLuint, size: GLint, offset_ind: i32) {
+    pub fn set_attribute<V: Sized>(&self, location: GLuint, size: GLint, offset_ind: i32) {
         self.bind();
         let stride = std::mem::size_of::<V>() as GLint;
         let offset_ptr = (offset_ind * (core::mem::size_of::<f32>() as i32)) as *const _;
         unsafe {
-            gl::VertexAttribPointer(index, size, gl::FLOAT, gl::FALSE, stride, offset_ptr);
-            gl::EnableVertexAttribArray(index);
+            gl::VertexAttribPointer(location, size, gl::FLOAT, gl::FALSE, stride, offset_ptr);
+            gl::EnableVertexAttribArray(location);
         }
     }
 
