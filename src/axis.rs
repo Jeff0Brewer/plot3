@@ -4,7 +4,7 @@ extern crate alloc;
 use crate::gl_wrap::{Program, Buffer, VertexArray, UniformMatrix, UniformVector};
 use crate::scene::{Scene, DrawPass};
 
-enum BorderType {
+pub enum BorderType {
     Arrow,
     Box
 }
@@ -55,16 +55,30 @@ fn get_box_axis(bounds: [f32; 3]) -> [PosVert; 12] {
     lines
 }
 
-const DEFAULT_COLOR: [f32; 4] = [1.0, 1.0, 1.0, 1.0];
-
 pub struct Axis {
-    border_type: BorderType
+    bounds: [f32; 3],
+    border_type: BorderType,
+    border_color: [f32; 4]
 }
 
 impl Axis {
     pub fn new() -> Self {
+        let bounds = [1.0, 1.0, 1.0];
         let border_type = BorderType::Box;
-        Self { border_type }
+        let border_color: [f32; 4] = [1.0, 1.0, 1.0, 1.0];
+        Self { bounds, border_type, border_color }
+    }
+
+    pub fn set_border_type(&mut self, border: BorderType) {
+        self.border_type = border;
+    }
+
+    pub fn set_bounds(&mut self, bounds: [f32; 3]) {
+        self.bounds = bounds;
+    }
+
+    pub fn set_border_color(&mut self, color: [f32; 4]) {
+        self.border_color = color;
     }
 
     pub fn get_scene(&self, mvp: [f32; 16]) -> Result<Scene, AxisError> {
@@ -78,14 +92,14 @@ impl Axis {
         let tri_len: i32;
         match self.border_type {
             BorderType::Arrow => {
-                let (lines, tris) = get_arrow_axis([1.0, 1.0, 1.0]);
+                let (lines, tris) = get_arrow_axis(self.bounds);
                 line_buffer.set_data(&lines, gl::STATIC_DRAW);
                 line_len = lines.len() as i32;
                 tri_buffer.set_data(&tris, gl::STATIC_DRAW);
                 tri_len = tris.len() as i32;
             },
             BorderType::Box => {
-                let lines = get_box_axis([1.0, 1.0, 1.0]);
+                let lines = get_box_axis(self.bounds);
                 line_buffer.set_data(&lines, gl::STATIC_DRAW);
                 line_len = lines.len() as i32;
                 tri_len = 0;
@@ -100,7 +114,7 @@ impl Axis {
         tri_attrib.set_attribute::<PosVert>(pos_loc, 3, 0);
 
         let mvp_uniform = UniformMatrix::new("mvp", mvp, vec![solid_program.id])?;
-        let color_uniform = UniformVector::new("color", DEFAULT_COLOR.clone(), vec![solid_program.id])?;
+        let color_uniform = UniformVector::new("color", self.border_color, vec![solid_program.id])?;
 
         let programs = vec![solid_program];
         let buffers = vec![line_buffer, tri_buffer];
