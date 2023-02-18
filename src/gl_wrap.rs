@@ -170,6 +170,12 @@ impl Buffer {
             );
         }
     }
+
+    pub fn new_from<D>(data: &[D], draw_type: GLuint) -> Self {
+        let buffer = Buffer::new();
+        buffer.set_data(data, draw_type);
+        buffer
+    }
 }
 
 pub struct VertexArray {

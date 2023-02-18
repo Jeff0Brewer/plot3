@@ -1,7 +1,7 @@
 extern crate gl;
 extern crate glam;
 extern crate alloc;
-use crate::gl_wrap::{Program, Buffer, VertexArray, UniformMatrix, UniformVector, Bind};
+use crate::gl_wrap::{Program, Buffer, VertexArray, UniformMatrix, UniformVector};
 use crate::scene::{Scene, DrawPass};
 
 pub enum BorderStyle {
@@ -87,39 +87,34 @@ impl Axis {
             "./shaders/solid_vert.glsl",
             "./shaders/solid_frag.glsl"
         )?;
+        let mvp_uniform = UniformMatrix::new("mvp", mvp, vec![solid_program.id])?;
+        let color_uniform = UniformVector::new("color", self.border_color, vec![solid_program.id])?;
 
+        // get axis geometry from current fields
         let lines: Vec<PosVert>;
         let tris: Vec<PosVert>;
         match self.border_style {
             BorderStyle::Arrow => { (lines, tris) = get_arrow_axis(self.bounds); },
             BorderStyle::Box => { (lines, tris) = get_box_axis(self.bounds); }
         }
-        let line_buffer = Buffer::new();
-        line_buffer.set_data(&lines, gl::STATIC_DRAW);
-        let tri_buffer = Buffer::new();
-        tri_buffer.set_data(&tris, gl::STATIC_DRAW);
-
         let pos_loc = solid_program.get_attrib_location("position")?;
-        let line_attrib = VertexArray::new();
-        line_buffer.bind();
-        line_attrib.set_attribute::<PosVert>(pos_loc, 3, 0);
-        let tri_attrib = VertexArray::new();
-        tri_buffer.bind();
-        tri_attrib.set_attribute::<PosVert>(pos_loc, 3, 0);
-
-        let mvp_uniform = UniformMatrix::new("mvp", mvp, vec![solid_program.id])?;
-        let color_uniform = UniformVector::new("color", self.border_color, vec![solid_program.id])?;
+        let line_vao = VertexArray::new();
+        let line_buffer = Buffer::new_from(&lines, gl::STATIC_DRAW);
+        line_vao.set_attribute::<PosVert>(pos_loc, 3, 0);
+        let tri_vao = VertexArray::new();
+        let tri_buffer = Buffer::new_from(&tris, gl::STATIC_DRAW);
+        tri_vao.set_attribute::<PosVert>(pos_loc, 3, 0);
 
         let programs = vec![solid_program];
+        let vaos = vec![line_vao, tri_vao];
         let buffers = vec![line_buffer, tri_buffer];
-        let attribs = vec![line_attrib, tri_attrib];
         let matrices = vec![mvp_uniform];
         let vectors = vec![color_uniform];
         let draw_passes = vec![
-            DrawPass::new(gl::LINES, 0, 0, 0, vec![0], vec![0], 0, lines.len() as i32),
-            DrawPass::new(gl::TRIANGLES, 0, 1, 1, vec![0], vec![0], 0, tris.len() as i32)
+            DrawPass::new(gl::LINES, 0, 0, vec![0], vec![0], 0, lines.len() as i32),
+            DrawPass::new(gl::TRIANGLES, 0, 1, vec![0], vec![0], 0, tris.len() as i32)
         ];
-        let scene = Scene::new(draw_passes, programs, buffers, attribs, matrices, vectors);
+        let scene = Scene::new(draw_passes, programs, vaos, buffers, matrices, vectors);
         Ok(scene)
     }
 }
