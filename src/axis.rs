@@ -3,86 +3,32 @@ extern crate glam;
 extern crate alloc;
 use crate::gl_wrap::{Program, Buffer, VertexArray, UniformMatrix, UniformVector};
 use crate::scene::{Scene, DrawPass};
-
-pub enum BorderStyle {
-    Arrow,
-    Box
-}
-
-type Pos = [f32; 3];
-#[repr(C, packed)]
-struct PosVert(Pos);
-
-const ARROW_SIZE: f32 = 0.02;
-fn get_arrow_axis(bounds: [f32; 3]) -> (Vec<PosVert>, Vec<PosVert>) {
-    let lines = vec![
-        PosVert([0.0, 0.0, 0.0]),
-        PosVert([bounds[0], 0.0, 0.0]),
-        PosVert([0.0, 0.0, 0.0]),
-        PosVert([0.0, bounds[1], 0.0]),
-        PosVert([0.0, 0.0, 0.0]),
-        PosVert([0.0, 0.0, bounds[2]])
-    ];
-    let tris = vec![
-        PosVert([bounds[0], 0.0, 0.0]),
-        PosVert([bounds[0] - ARROW_SIZE, ARROW_SIZE, 0.0]),
-        PosVert([bounds[0] - ARROW_SIZE, -ARROW_SIZE, 0.0]),
-        PosVert([0.0, bounds[1], 0.0]),
-        PosVert([ARROW_SIZE, bounds[1] - ARROW_SIZE, 0.0]),
-        PosVert([-ARROW_SIZE, bounds[1] - ARROW_SIZE, 0.0]),
-        PosVert([0.0, 0.0, bounds[2]]),
-        PosVert([ARROW_SIZE, 0.0, bounds[2] - ARROW_SIZE]),
-        PosVert([-ARROW_SIZE, 0.0, bounds[2] - ARROW_SIZE])
-    ];
-    (lines, tris)
-}
-
-fn get_box_axis(bounds: [f32; 3]) -> (Vec<PosVert>, Vec<PosVert>) {
-    let lines = vec![
-        PosVert([bounds[0], bounds[1], 0.0]),
-        PosVert([bounds[0], 0.0, 0.0]),
-        PosVert([bounds[0], 0.0, 0.0]),
-        PosVert([bounds[0], 0.0, bounds[2]]),
-        PosVert([bounds[0], 0.0, bounds[2]]),
-        PosVert([0.0, 0.0, bounds[2]]),
-        PosVert([0.0, 0.0, bounds[2]]),
-        PosVert([0.0, bounds[1], bounds[2]]),
-        PosVert([0.0, bounds[1], bounds[2]]),
-        PosVert([0.0, bounds[1], 0.0]),
-        PosVert([0.0, bounds[1], 0.0]),
-        PosVert([bounds[0], bounds[1], 0.0]),
-    ];
-    let tris = vec![];
-    (lines, tris)
-}
+use crate::plot::{Bounds};
 
 pub struct Axis {
-    bounds: [f32; 3],
+    bounds: Bounds,
     border_style: BorderStyle,
     border_color: [f32; 4]
 }
 
 impl Axis {
     pub fn new() -> Self {
-        let bounds = [1.0, 1.0, 1.0];
+        let bounds = Bounds::new(1.0, 1.0, 1.0);
         let border_style = BorderStyle::Box;
         let border_color: [f32; 4] = [1.0, 1.0, 1.0, 1.0];
         Self { bounds, border_style, border_color }
     }
 
-    pub fn set_border_style(&mut self, style: BorderStyle) {
-        self.border_style = style;
-    }
-
-    pub fn set_bounds(&mut self, bounds: [f32; 3]) {
-        self.bounds = bounds;
-    }
-
-    pub fn set_border_color(&mut self, color: [f32; 4]) {
-        self.border_color = color;
-    }
-
     pub fn get_scene(&self, mvp: [f32; 16]) -> Result<Scene, AxisError> {
+        // get axis geometry from current fields
+        let lines: Vec<PosVert>;
+        let tris: Vec<PosVert>;
+        match self.border_style {
+            BorderStyle::Arrow => { (lines, tris) = get_arrow_axis(&self.bounds); },
+            BorderStyle::Box => { (lines, tris) = get_box_axis(&self.bounds); }
+        }
+
+        // init gl resources
         let solid_program = Program::new_from_files(
             "./shaders/solid_vert.glsl",
             "./shaders/solid_frag.glsl"
@@ -90,13 +36,7 @@ impl Axis {
         let mvp_uniform = UniformMatrix::new("mvp", mvp, vec![solid_program.id])?;
         let color_uniform = UniformVector::new("color", self.border_color, vec![solid_program.id])?;
 
-        // get axis geometry from current fields
-        let lines: Vec<PosVert>;
-        let tris: Vec<PosVert>;
-        match self.border_style {
-            BorderStyle::Arrow => { (lines, tris) = get_arrow_axis(self.bounds); },
-            BorderStyle::Box => { (lines, tris) = get_box_axis(self.bounds); }
-        }
+        // setup vaos with data and attribs
         let pos_loc = solid_program.get_attrib_location("position")?;
         let line_vao = VertexArray::new();
         let line_buffer = Buffer::new_from(&lines, gl::STATIC_DRAW);
@@ -105,6 +45,7 @@ impl Axis {
         let tri_buffer = Buffer::new_from(&tris, gl::STATIC_DRAW);
         tri_vao.set_attribute::<PosVert>(pos_loc, 3, 0);
 
+        // create scene
         let programs = vec![solid_program];
         let vaos = vec![line_vao, tri_vao];
         let buffers = vec![line_buffer, tri_buffer];
@@ -117,6 +58,77 @@ impl Axis {
         let scene = Scene::new(draw_passes, programs, vaos, buffers, matrices, vectors);
         Ok(scene)
     }
+
+    pub fn set_border_style(&mut self, style: BorderStyle) {
+        self.border_style = style;
+    }
+
+    pub fn set_bounds(&mut self, x: f32, y: f32, z: f32) {
+        self.bounds = Bounds::new(x, y, z);
+    }
+
+    pub fn set_border_color(&mut self, color: [f32; 4]) {
+        self.border_color = color;
+    }
+
+}
+
+pub enum BorderStyle {
+    Arrow,
+    Box
+}
+
+// sized position vertex with C repr for gl buffering
+type Pos = [f32; 3];
+#[repr(C, packed)]
+struct PosVert(Pos);
+macro_rules! pos_vert {
+    ($($pos:expr),*) => {
+        vec![$(PosVert($pos),)*]
+    }
+}
+
+fn get_arrow_axis(b: &Bounds) -> (Vec<PosVert>, Vec<PosVert>) {
+    const S: f32 = 0.02; // arrow size
+    let lines = pos_vert![
+        [0.0, 0.0, 0.0],
+        [b.x, 0.0, 0.0],
+        [0.0, 0.0, 0.0],
+        [0.0, b.y, 0.0],
+        [0.0, 0.0, 0.0],
+        [0.0, 0.0, b.z]
+    ];
+    let tris = pos_vert![
+        [b.x, 0.0, 0.0],
+        [b.x-S, S, 0.0],
+        [b.x-S, -S, 0.0],
+        [0.0, b.y, 0.0],
+        [S, b.y-S, 0.0],
+        [-S, b.y-S, 0.0],
+        [0.0, 0.0, b.z],
+        [S, 0.0, b.z-S],
+        [-S, 0.0, b.z-S]
+    ];
+    (lines, tris)
+}
+
+fn get_box_axis(b: &Bounds) -> (Vec<PosVert>, Vec<PosVert>) {
+    let lines = pos_vert![
+        [b.x, b.y, 0.0],
+        [b.x, 0.0, 0.0],
+        [b.x, 0.0, 0.0],
+        [b.x, 0.0, b.z],
+        [b.x, 0.0, b.z],
+        [0.0, 0.0, b.z],
+        [0.0, 0.0, b.z],
+        [0.0, b.y, b.z],
+        [0.0, b.y, b.z],
+        [0.0, b.y, 0.0],
+        [0.0, b.y, 0.0],
+        [b.x, b.y, 0.0]
+    ];
+    let tris = pos_vert![];
+    (lines, tris)
 }
 
 extern crate thiserror;
