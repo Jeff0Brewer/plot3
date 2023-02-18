@@ -1,6 +1,6 @@
 extern crate gl;
 use gl::types::GLenum;
-use crate::gl_wrap::{Program, Buffer, VertexArray, UniformMatrix, UniformVector};
+use crate::gl_wrap::{Program, Buffer, VertexArray, UniformMatrix, UniformVector, Bind, Drop};
 use crate::gl_wrap::{UniformError};
 
 // struct containing all info for single gl draw operation
@@ -47,7 +47,7 @@ impl DrawPass {
         vectors: &Vec<UniformVector>
     ) -> Result<(), UniformError> {
         let program = &programs[self.program_ind];
-        program.apply();
+        program.bind();
         //buffers[self.buffer_ind].bind();
         attribs[self.attrib_ind].bind();
         for &i in &self.matrix_inds { matrices[i].apply(program.id)?; }

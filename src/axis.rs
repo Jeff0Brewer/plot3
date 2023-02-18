@@ -1,7 +1,7 @@
 extern crate gl;
 extern crate glam;
 extern crate alloc;
-use crate::gl_wrap::{Program, Buffer, VertexArray, UniformMatrix, UniformVector};
+use crate::gl_wrap::{Program, Buffer, VertexArray, UniformMatrix, UniformVector, Bind};
 use crate::scene::{Scene, DrawPass};
 
 pub enum BorderStyle {
@@ -126,12 +126,14 @@ impl Axis {
 
 extern crate thiserror;
 use thiserror::Error;
-use crate::gl_wrap::{ShaderError, UniformError};
+use crate::gl_wrap::{ShaderError, ProgramError, UniformError};
 use std::ffi::NulError;
 #[derive(Error, Debug)]
 pub enum AxisError {
     #[error("{0}")]
     ShaderError(#[from] ShaderError),
+    #[error("{0}")]
+    ProgramError(#[from] ProgramError),
     #[error("{0}")]
     UniformError(#[from] UniformError),
     #[error("{0}")]
