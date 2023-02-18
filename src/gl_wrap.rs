@@ -91,10 +91,6 @@ impl Shader {
             Err(ShaderError::CompilationError(log))
         }
     }
-
-    pub fn drop(&self) {
-        unsafe { gl::DeleteShader(self.id); }
-    }
 }
 
 pub struct Program {
@@ -102,7 +98,7 @@ pub struct Program {
 }
 
 impl Program {
-    pub fn new(vertex_shader: &Shader, fragment_shader: &Shader) -> Result<Self, ShaderError> {
+    pub fn new(vertex_shader: &Shader, fragment_shader: &Shader) -> Result<Self, ProgramError> {
         // link shaders into program
         let program: Self;
         unsafe {
@@ -127,12 +123,12 @@ impl Program {
                 error_log.set_len(log_size as usize);
             }
             let log = String::from_utf8(error_log)?;
-            Err(ShaderError::LinkingError(log))
+            Err(ProgramError::LinkingError(log))
         }
     }
 
     // constructor from files to minimize initialization steps
-    pub fn new_from_files(vertex_file: &str, fragment_file: &str) -> Result<Self, ShaderError> {
+    pub fn new_from_files(vertex_file: &str, fragment_file: &str) -> Result<Self, ProgramError> {
         let vertex_shader = Shader::new(vertex_file, gl::VERTEX_SHADER)?;
         let fragment_shader = Shader::new(fragment_file, gl::FRAGMENT_SHADER)?;
         let result = Self::new(&vertex_shader, &fragment_shader);
@@ -145,17 +141,9 @@ impl Program {
         result
     }
 
-    pub fn get_attrib_location(&self, attrib: &str) -> Result<GLuint, ShaderError> {
+    pub fn get_attrib_location(&self, attrib: &str) -> Result<GLuint, ProgramError> {
         let attrib = CString::new(attrib)?;
         unsafe { Ok(gl::GetAttribLocation(self.id, attrib.as_ptr()) as GLuint) }
-    }
-
-    pub fn apply(&self) {
-        unsafe { gl::UseProgram(self.id); }
-    }
-
-    pub fn drop(&self) {
-        unsafe { gl::DeleteProgram(self.id); }
     }
 }
 
@@ -183,12 +171,10 @@ impl Buffer {
         }
     }
 
-    pub fn bind(&self) {
-        unsafe { gl::BindBuffer(gl::ARRAY_BUFFER, self.id); }
-    }
-
-    pub fn drop(&self) {
-        unsafe { gl::DeleteBuffers(1, [self.id].as_ptr()); }
+    pub fn new_from<D>(data: &[D], draw_type: GLuint) -> Self {
+        let buffer = Buffer::new();
+        buffer.set_data(data, draw_type);
+        buffer
     }
 }
 
@@ -211,14 +197,6 @@ impl VertexArray {
             gl::VertexAttribPointer(location, size, gl::FLOAT, gl::FALSE, stride, offset_ptr);
             gl::EnableVertexAttribArray(location);
         }
-    }
-
-    pub fn bind(&self) {
-        unsafe { gl::BindVertexArray(self.id); }
-    }
-
-    pub fn drop(&self) {
-        unsafe { gl::DeleteVertexArrays(1, [self.id].as_ptr()); }
     }
 }
 
@@ -250,9 +228,7 @@ impl UniformMatrix {
                 unsafe { gl::UniformMatrix4fv(location, 1, gl::FALSE, &self.matrix[0]); }
                 Ok(())
             },
-            None => {
-                Err(UniformError::InvalidLocationError(program_id))
-            }
+            None => Err(UniformError::InvalidLocationError(program_id))
         }
     }
 }
@@ -274,10 +250,61 @@ impl UniformVector {
                 unsafe { gl::Uniform4fv(location, 1, &self.vector[0]); }
                 Ok(())
             },
-            None => {
-                Err(UniformError::InvalidLocationError(program_id))
-            }
+            None => Err(UniformError::InvalidLocationError(program_id))
+
         }
+    }
+}
+
+// trait for freeing resources
+pub trait Drop {
+    fn drop(&self);
+}
+
+impl Drop for Shader {
+    fn drop(&self) {
+        unsafe { gl::DeleteShader(self.id); }
+    }
+}
+
+impl Drop for Program {
+    fn drop(&self) {
+        unsafe { gl::DeleteProgram(self.id); }
+    }
+}
+
+impl Drop for Buffer {
+    fn drop(&self) {
+        unsafe { gl::DeleteBuffers(1, [self.id].as_ptr()); }
+    }
+}
+
+impl Drop for VertexArray {
+    fn drop(&self) {
+        unsafe { gl::DeleteVertexArrays(1, [self.id].as_ptr()); }
+    }
+}
+
+// trait for setting gl context state
+pub trait Bind {
+    fn bind(&self);
+}
+
+impl Bind for Program {
+    fn bind(&self) {
+        unsafe { gl::UseProgram(self.id); }
+    }
+}
+
+impl Bind for Buffer {
+    fn bind(&self) {
+        unsafe { gl::BindBuffer(gl::ARRAY_BUFFER, self.id); }
+    }
+}
+
+impl Bind for VertexArray {
+    fn bind(&self) {
+        unsafe { gl::BindVertexArray(self.id); }
     }
 }
 
@@ -288,14 +315,24 @@ use thiserror::Error;
 pub enum ShaderError {
     #[error("Compilation failed: {0}")]
     CompilationError(String),
+    #[error{"{0}"}]
+    Utf8Error(#[from] FromUtf8Error),
+    #[error{"{0}"}]
+    IoError(#[from] std::io::Error),
+    #[error{"{0}"}]
+    NulError(#[from] NulError)
+}
+
+#[derive(Error, Debug)]
+pub enum ProgramError {
     #[error("Linking failed: {0}")]
     LinkingError(String),
     #[error{"{0}"}]
     Utf8Error(#[from] FromUtf8Error),
     #[error{"{0}"}]
-    NulError(#[from] NulError),
+    ShaderError(#[from] ShaderError),
     #[error{"{0}"}]
-    IoError(#[from] std::io::Error)
+    NulError(#[from] NulError)
 }
 
 #[derive(Error, Debug)]
