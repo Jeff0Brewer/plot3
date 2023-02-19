@@ -1,4 +1,6 @@
+mod vertices;
 mod plot;
+mod axis_vert;
 mod axis;
 mod scene;
 mod gl_wrap;
