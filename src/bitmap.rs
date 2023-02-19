@@ -1,16 +1,16 @@
-use crate::vertices::{TexVert, tex_vert};
+use crate::vertices::{BitmapVert, bmp_vert};
 
 struct Bitmap {
-    vertices: [TexVert; 4]
+    vertices: [BitmapVert; 4]
 }
 
 impl Bitmap {
     pub fn new() -> Self {
-        let vertices = tex_vert![
-            [1.0, 1.0, 0.0, 1.0, 1.0],
-            [1.0, -1.0, 0.0, 1.0, 0.0],
-            [-1.0, -1.0, 0.0, 0.0, 0.0],
-            [-1.0, 1.0, 0.0, 0.0, 1.0]
+        let vertices = bmp_vert![
+            [1.0, 1.0, 1.0, 1.0],
+            [1.0, -1.0, 1.0, 0.0],
+            [-1.0, -1.0, 0.0, 0.0],
+            [-1.0, 1.0, 0.0, 1.0]
         ];
         Self { vertices }
     }

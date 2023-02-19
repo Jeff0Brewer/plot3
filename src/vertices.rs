@@ -1,8 +1,5 @@
-type Position = [f32; 3];
-type TexCoord = [f32; 2];
-
 #[repr(C)]
-pub struct PosVert(pub Position);
+pub struct PosVert(pub [f32; 3]);
 // convert Nx3 array into PosVert vec
 macro_rules! pos_vert {
     ($($pos:expr),*) => {
@@ -12,13 +9,13 @@ macro_rules! pos_vert {
 pub(crate) use pos_vert;
 
 #[repr(C, packed)]
-pub struct TexVert(pub Position, pub TexCoord);
-// convert Nx5 array into TexVert arr
-macro_rules! tex_vert {
-    ($([$a:expr, $b:expr, $c:expr, $d:expr, $e:expr]),*) => {
+pub struct BitmapVert(pub [f32; 2], pub [f32; 2]);
+// convert Nx4 array into BitmapVert arr
+macro_rules! bmp_vert {
+    ($([$a:expr, $b:expr, $c:expr, $d:expr]),*) => {
         [$(
-            TexVert([$a, $b, $c], [$d, $e]),
+            BitmapVert([$a, $b], [$c, $d]),
         )*]
     }
 }
-pub(crate) use tex_vert;
+pub(crate) use bmp_vert;
