@@ -26,6 +26,7 @@ impl Window {
         let event_loop = EventLoop::new();
         let ctx = ContextBuilder::new()
             .with_gl(GlRequest::Specific(Api::OpenGl, (3, 3)))
+            .with_multisampling(4)
             .build_windowed(window, &event_loop)?;
         unsafe {
             let ctx = ctx.make_current().unwrap();
