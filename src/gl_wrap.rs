@@ -94,6 +94,12 @@ impl Shader {
     }
 }
 
+impl Drop for Shader {
+    fn drop(&self) {
+        unsafe { gl::DeleteShader(self.id); }
+    }
+}
+
 pub struct Program {
     pub id: GLuint
 }
@@ -148,6 +154,18 @@ impl Program {
     }
 }
 
+impl Drop for Program {
+    fn drop(&self) {
+        unsafe { gl::DeleteProgram(self.id); }
+    }
+}
+
+impl Bind for Program {
+    fn bind(&self) {
+        unsafe { gl::UseProgram(self.id); }
+    }
+}
+
 pub struct Buffer {
     pub id: GLuint
 }
@@ -179,6 +197,18 @@ impl Buffer {
     }
 }
 
+impl Drop for Buffer {
+    fn drop(&self) {
+        unsafe { gl::DeleteBuffers(1, [self.id].as_ptr()); }
+    }
+}
+
+impl Bind for Buffer {
+    fn bind(&self) {
+        unsafe { gl::BindBuffer(gl::ARRAY_BUFFER, self.id); }
+    }
+}
+
 pub struct VertexArray {
     pub id: GLuint
 }
@@ -198,6 +228,60 @@ impl VertexArray {
             gl::VertexAttribPointer(location, size, gl::FLOAT, gl::FALSE, stride, offset_ptr);
             gl::EnableVertexAttribArray(location);
         }
+    }
+}
+
+impl Drop for VertexArray {
+    fn drop(&self) {
+        unsafe { gl::DeleteVertexArrays(1, [self.id].as_ptr()); }
+    }
+}
+
+impl Bind for VertexArray {
+    fn bind(&self) {
+        unsafe { gl::BindVertexArray(self.id); }
+    }
+}
+
+pub struct Texture {
+    id: GLuint
+}
+
+impl Texture {
+    pub fn new(data: &[u8], width: usize, height: usize) -> Self {
+        let mut id: GLuint = 0;
+        unsafe {
+            gl::GenTextures(1, &mut id);
+            gl::BindTexture(gl::TEXTURE_2D, id);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
+            gl::TexImage2D(
+                gl::TEXTURE_2D,
+                0,
+                gl::RGB as i32,
+                width as i32,
+                height as i32,
+                0,
+                gl::RGB,
+                gl::UNSIGNED_BYTE,
+                &data[0] as *const _ as *const std::ffi::c_void
+            );
+        }
+        Self { id }
+    }
+}
+
+impl Drop for Texture {
+    fn drop(&self) {
+        unsafe { gl::DeleteTextures(1, [self.id].as_ptr()); }
+    }
+}
+
+impl Bind for Texture {
+    fn bind(&self) {
+        unsafe { gl::BindTexture(gl::TEXTURE_2D, self.id); }
     }
 }
 
@@ -257,57 +341,9 @@ impl UniformVector {
     }
 }
 
-// trait for freeing resources
-pub trait Drop {
-    fn drop(&self);
-}
-
-impl Drop for Shader {
-    fn drop(&self) {
-        unsafe { gl::DeleteShader(self.id); }
-    }
-}
-
-impl Drop for Program {
-    fn drop(&self) {
-        unsafe { gl::DeleteProgram(self.id); }
-    }
-}
-
-impl Drop for Buffer {
-    fn drop(&self) {
-        unsafe { gl::DeleteBuffers(1, [self.id].as_ptr()); }
-    }
-}
-
-impl Drop for VertexArray {
-    fn drop(&self) {
-        unsafe { gl::DeleteVertexArrays(1, [self.id].as_ptr()); }
-    }
-}
-
-// trait for setting gl context state
-pub trait Bind {
-    fn bind(&self);
-}
-
-impl Bind for Program {
-    fn bind(&self) {
-        unsafe { gl::UseProgram(self.id); }
-    }
-}
-
-impl Bind for Buffer {
-    fn bind(&self) {
-        unsafe { gl::BindBuffer(gl::ARRAY_BUFFER, self.id); }
-    }
-}
-
-impl Bind for VertexArray {
-    fn bind(&self) {
-        unsafe { gl::BindVertexArray(self.id); }
-    }
-}
+// traits to update gl context state
+pub trait Drop { fn drop(&self); }
+pub trait Bind { fn bind(&self); }
 
 extern crate thiserror;
 use thiserror::Error;
