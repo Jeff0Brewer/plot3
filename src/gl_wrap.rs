@@ -285,7 +285,7 @@ impl Bind for Texture {
     }
 }
 
-struct TextureFramebuffer {
+pub struct TextureFramebuffer {
     id: GLuint,
     tex_id: GLuint
 }
