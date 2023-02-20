@@ -248,7 +248,7 @@ pub struct Texture {
 }
 
 impl Texture {
-    pub fn new(data: &[u8], width: usize, height: usize) -> Self {
+    pub fn new(data: &[u8], width: i32, height: i32) -> Self {
         let mut id: GLuint = 0;
         unsafe {
             gl::GenTextures(1, &mut id);
@@ -261,8 +261,8 @@ impl Texture {
                 gl::TEXTURE_2D,
                 0,
                 gl::RGB as i32,
-                width as i32,
-                height as i32,
+                width,
+                height,
                 0,
                 gl::RGB,
                 gl::UNSIGNED_BYTE,
@@ -282,6 +282,64 @@ impl Drop for Texture {
 impl Bind for Texture {
     fn bind(&self) {
         unsafe { gl::BindTexture(gl::TEXTURE_2D, self.id); }
+    }
+}
+
+struct TextureFramebuffer {
+    id: GLuint,
+    tex_id: GLuint
+}
+
+impl TextureFramebuffer {
+    pub fn new(width: i32, height: i32) -> Result<Self, FramebufferError> {
+        let mut id: GLuint = 0;
+        let mut tex_id: GLuint = 0;
+        unsafe {
+            gl::GenFramebuffers(1, &mut id);
+            gl::BindFramebuffer(gl::FRAMEBUFFER, id);
+            gl::GenTextures(1, &mut tex_id);
+            gl::BindTexture(gl::TEXTURE_2D, tex_id);
+            // create empty texture
+            gl::TexImage2D(
+                gl::TEXTURE_2D,
+                0,
+                gl::RGB as i32,
+                width,
+                height,
+                0,
+                gl::RGB,
+                gl::UNSIGNED_BYTE,
+                &[] as *const std::ffi::c_void
+            );
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
+            gl::BindTexture(gl::TEXTURE_2D, 0); // unbind texture
+            gl::FramebufferTexture2D(gl::FRAMEBUFFER, gl::COLOR_ATTACHMENT0, gl::TEXTURE_2D, tex_id, 0);
+            if gl::CheckFramebufferStatus(gl::FRAMEBUFFER) != gl::FRAMEBUFFER_COMPLETE {
+                return Err(FramebufferError::CreationError);
+            }
+            gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
+        }
+        Ok(Self { id, tex_id })
+    }
+
+    pub fn bind_default() {
+        unsafe { gl::BindFramebuffer(gl::FRAMEBUFFER, 0); }
+    }
+}
+
+impl Drop for TextureFramebuffer {
+    fn drop(&self) {
+        unsafe {
+            gl::DeleteFramebuffers(1, [self.id].as_ptr());
+            gl::DeleteTextures(1, [self.tex_id].as_ptr());
+        }
+    }
+}
+
+impl Bind for TextureFramebuffer {
+    fn bind(&self) {
+        unsafe { gl::BindFramebuffer(gl::FRAMEBUFFER, self.id); }
     }
 }
 
@@ -370,6 +428,12 @@ pub enum ProgramError {
     ShaderError(#[from] ShaderError),
     #[error{"{0}"}]
     NulError(#[from] NulError)
+}
+
+#[derive(Error, Debug)]
+pub enum FramebufferError {
+    #[error("Framebuffer creation failed")]
+    CreationError
 }
 
 #[derive(Error, Debug)]
