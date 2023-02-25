@@ -11,7 +11,7 @@ pub struct Bitmap {
     vao: VertexArray,
     buffer: Buffer,
     chars: Vec<char>,
-    locations: BitmapUniforms
+    uniforms: BitmapUniforms
 }
 
 struct BitmapUniforms {
@@ -38,9 +38,9 @@ impl Bitmap {
         let map_size_cname = CString::new("map_size")?;
         let char_size_cname = CString::new("char_size")?;
         let offset_cname = CString::new("offset")?;
-        let locations: BitmapUniforms;
+        let uniforms: BitmapUniforms;
         unsafe {
-            locations = BitmapUniforms {
+            uniforms = BitmapUniforms {
                 map_size: gl::GetUniformLocation(program.id, map_size_cname.as_ptr()),
                 char_size: gl::GetUniformLocation(program.id, char_size_cname.as_ptr()),
                 offset: gl::GetUniformLocation(program.id, offset_cname.as_ptr())
@@ -48,7 +48,7 @@ impl Bitmap {
         }
 
         let chars: Vec<char> = CHAR_SET.chars().collect();
-        Ok(Self { framebuffer, program, vao, buffer, chars, locations })
+        Ok(Self { framebuffer, program, vao, buffer, chars, uniforms })
     }
 
     // create texture with rasterized chars for single font face
@@ -67,7 +67,7 @@ impl Bitmap {
         self.program.bind();
         self.vao.bind();
         unsafe {
-            gl::Uniform2fv(self.locations.map_size, 1, &MAP_SIZE[0]);
+            gl::Uniform2fv(self.uniforms.map_size, 1, &MAP_SIZE[0]);
             gl::ClearColor(0.0, 0.0, 0.0, 0.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
@@ -90,8 +90,8 @@ impl Bitmap {
             let rgba = rgba_from_bytes(bitmap);
             let texture = Texture::new(&rgba, metrics.width as i32, metrics.height as i32);
             unsafe {
-                gl::Uniform2fv(self.locations.char_size, 1, &char_size[0]);
-                gl::Uniform2fv(self.locations.offset, 1, &offset[0]);
+                gl::Uniform2fv(self.uniforms.char_size, 1, &char_size[0]);
+                gl::Uniform2fv(self.uniforms.offset, 1, &offset[0]);
                 gl::DrawArrays(gl::TRIANGLE_STRIP, 0, NUM_VERTEX);
             }
             // free drawn character texture
