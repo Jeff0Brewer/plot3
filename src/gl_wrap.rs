@@ -37,6 +37,7 @@ impl Window {
 
     // begin draw loop with generic user defined scenes
     pub fn run(self, scenes: Vec<Scene>) -> () {
+        self.ctx.swap_buffers().unwrap();
         self.event_loop.run(move |event, _, control_flow| {
             *control_flow = ControlFlow::Wait;
             match event {
@@ -94,6 +95,12 @@ impl Shader {
     }
 }
 
+impl Drop for Shader {
+    fn drop(&self) {
+        unsafe { gl::DeleteShader(self.id); }
+    }
+}
+
 pub struct Program {
     pub id: GLuint
 }
@@ -148,6 +155,18 @@ impl Program {
     }
 }
 
+impl Drop for Program {
+    fn drop(&self) {
+        unsafe { gl::DeleteProgram(self.id); }
+    }
+}
+
+impl Bind for Program {
+    fn bind(&self) {
+        unsafe { gl::UseProgram(self.id); }
+    }
+}
+
 pub struct Buffer {
     pub id: GLuint
 }
@@ -179,6 +198,18 @@ impl Buffer {
     }
 }
 
+impl Drop for Buffer {
+    fn drop(&self) {
+        unsafe { gl::DeleteBuffers(1, [self.id].as_ptr()); }
+    }
+}
+
+impl Bind for Buffer {
+    fn bind(&self) {
+        unsafe { gl::BindBuffer(gl::ARRAY_BUFFER, self.id); }
+    }
+}
+
 pub struct VertexArray {
     pub id: GLuint
 }
@@ -197,6 +228,128 @@ impl VertexArray {
         unsafe {
             gl::VertexAttribPointer(location, size, gl::FLOAT, gl::FALSE, stride, offset_ptr);
             gl::EnableVertexAttribArray(location);
+        }
+    }
+}
+
+impl Drop for VertexArray {
+    fn drop(&self) {
+        unsafe { gl::DeleteVertexArrays(1, [self.id].as_ptr()); }
+    }
+}
+
+impl Bind for VertexArray {
+    fn bind(&self) {
+        unsafe { gl::BindVertexArray(self.id); }
+    }
+}
+
+pub struct Texture {
+    id: GLuint
+}
+
+impl Texture {
+    pub fn new(data: &[u8], width: i32, height: i32) -> Self {
+        let mut id: GLuint = 0;
+        unsafe {
+            gl::GenTextures(1, &mut id);
+            gl::BindTexture(gl::TEXTURE_2D, id);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
+            gl::TexImage2D(
+                gl::TEXTURE_2D,
+                0,
+                gl::RGBA as i32,
+                width,
+                height,
+                0,
+                gl::RGBA,
+                gl::UNSIGNED_BYTE,
+                &data[0] as *const _ as *const std::ffi::c_void
+            );
+        }
+        Self { id }
+    }
+}
+
+impl Drop for Texture {
+    fn drop(&self) {
+        unsafe { gl::DeleteTextures(1, [self.id].as_ptr()); }
+    }
+}
+
+impl Bind for Texture {
+    fn bind(&self) {
+        unsafe { gl::BindTexture(gl::TEXTURE_2D, self.id); }
+    }
+}
+
+pub struct TextureFramebuffer {
+    id: GLuint,
+    pub tex_id: GLuint,
+    pub width: i32,
+    pub height: i32,
+    window_width: i32,
+    window_height: i32
+}
+
+impl TextureFramebuffer {
+    pub fn new(width: i32, height: i32, window_width: i32, window_height: i32) -> Result<Self, FramebufferError> {
+        let mut id: GLuint = 0;
+        let mut tex_id: GLuint = 0;
+        unsafe {
+            gl::GenFramebuffers(1, &mut id);
+            gl::BindFramebuffer(gl::FRAMEBUFFER, id);
+            gl::GenTextures(1, &mut tex_id);
+            gl::BindTexture(gl::TEXTURE_2D, tex_id);
+            // create empty texture
+            gl::TexImage2D(
+                gl::TEXTURE_2D,
+                0,
+                gl::RGB as i32,
+                width,
+                height,
+                0,
+                gl::RGB,
+                gl::UNSIGNED_BYTE,
+                &[] as *const std::ffi::c_void
+            );
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
+            gl::BindTexture(gl::TEXTURE_2D, 0); // unbind texture
+            gl::FramebufferTexture2D(gl::FRAMEBUFFER, gl::COLOR_ATTACHMENT0, gl::TEXTURE_2D, tex_id, 0);
+            if gl::CheckFramebufferStatus(gl::FRAMEBUFFER) != gl::FRAMEBUFFER_COMPLETE {
+                return Err(FramebufferError::CreationError);
+            }
+            gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
+        }
+        Ok(Self { id, tex_id, width, height, window_width, window_height })
+    }
+
+    pub fn bind_default(&self) {
+        unsafe {
+            gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
+            gl::Viewport(0, 0, self.window_width, self.window_height);
+        }
+    }
+}
+
+impl Drop for TextureFramebuffer {
+    fn drop(&self) {
+        unsafe {
+            gl::DeleteFramebuffers(1, [self.id].as_ptr());
+            gl::DeleteTextures(1, [self.tex_id].as_ptr());
+        }
+    }
+}
+
+impl Bind for TextureFramebuffer {
+    fn bind(&self) {
+        unsafe {
+            gl::BindFramebuffer(gl::FRAMEBUFFER, self.id);
+            gl::Viewport(0, 0, self.width, self.height);
         }
     }
 }
@@ -257,57 +410,9 @@ impl UniformVector {
     }
 }
 
-// trait for freeing resources
-pub trait Drop {
-    fn drop(&self);
-}
-
-impl Drop for Shader {
-    fn drop(&self) {
-        unsafe { gl::DeleteShader(self.id); }
-    }
-}
-
-impl Drop for Program {
-    fn drop(&self) {
-        unsafe { gl::DeleteProgram(self.id); }
-    }
-}
-
-impl Drop for Buffer {
-    fn drop(&self) {
-        unsafe { gl::DeleteBuffers(1, [self.id].as_ptr()); }
-    }
-}
-
-impl Drop for VertexArray {
-    fn drop(&self) {
-        unsafe { gl::DeleteVertexArrays(1, [self.id].as_ptr()); }
-    }
-}
-
-// trait for setting gl context state
-pub trait Bind {
-    fn bind(&self);
-}
-
-impl Bind for Program {
-    fn bind(&self) {
-        unsafe { gl::UseProgram(self.id); }
-    }
-}
-
-impl Bind for Buffer {
-    fn bind(&self) {
-        unsafe { gl::BindBuffer(gl::ARRAY_BUFFER, self.id); }
-    }
-}
-
-impl Bind for VertexArray {
-    fn bind(&self) {
-        unsafe { gl::BindVertexArray(self.id); }
-    }
-}
+// traits to update gl context state
+pub trait Drop { fn drop(&self); }
+pub trait Bind { fn bind(&self); }
 
 extern crate thiserror;
 use thiserror::Error;
@@ -334,6 +439,12 @@ pub enum ProgramError {
     ShaderError(#[from] ShaderError),
     #[error{"{0}"}]
     NulError(#[from] NulError)
+}
+
+#[derive(Error, Debug)]
+pub enum FramebufferError {
+    #[error("Framebuffer creation failed")]
+    CreationError
 }
 
 #[derive(Error, Debug)]
