@@ -1,7 +1,9 @@
 extern crate fontdue;
+extern crate gl;
 use crate::vertices::{BitmapVert, bmp_vert};
 use crate::gl_wrap::{TextureFramebuffer, Program, Buffer, VertexArray, Texture, Bind, Drop};
 use fontdue::{Font, FontSettings};
+use gl::types::GLuint;
 use std::ffi::CString;
 use std::fs;
 
@@ -21,8 +23,8 @@ struct BitmapUniforms {
 }
 
 impl Bitmap {
-    pub fn new() -> Result<Self, BitmapError> {
-        let framebuffer = TextureFramebuffer::new(1024, 512)?;
+    pub fn new(window_width: i32, window_height: i32) -> Result<Self, BitmapError> {
+        let framebuffer = TextureFramebuffer::new(1024, 512, window_width, window_height)?;
         let program = Program::new_from_files(
             "./shaders/bitmap_vert.glsl",
             "./shaders/bitmap_frag.glsl"
@@ -52,10 +54,13 @@ impl Bitmap {
     }
 
     // create texture with rasterized chars for single font face
-    pub fn gen_font_map(&self, font_file: &str) -> Result<(), BitmapError> {
-        const MAP_SIZE: [f32; 2] = [800.0, 800.0];
+    pub fn gen_font_map(&self, font_file: &str) -> Result<GLuint, BitmapError> {
+        let map_size: [f32; 2] = [
+            self.framebuffer.width as f32,
+            self.framebuffer.height as f32
+        ];
         // character layout params
-        let char_per_row = (MAP_SIZE[0] / FONT_SIZE).floor() as usize;
+        let char_per_row = (map_size[0] / FONT_SIZE).floor() as usize;
         let padding: f32 = FONT_SIZE * 0.5;
         let line_height: f32 = FONT_SIZE * 1.25;
 
@@ -64,10 +69,11 @@ impl Bitmap {
         let font = Font::from_bytes(font_bytes, FontSettings::default())?;
 
         // bind constant gl resources
+        self.framebuffer.bind();
         self.program.bind();
         self.vao.bind();
         unsafe {
-            gl::Uniform2fv(self.uniforms.map_size, 1, &MAP_SIZE[0]);
+            gl::Uniform2fv(self.uniforms.map_size, 1, &map_size[0]);
             gl::ClearColor(0.0, 0.0, 0.0, 0.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
@@ -97,7 +103,11 @@ impl Bitmap {
             // free drawn character texture
             texture.drop();
         }
-        Ok(())
+        // unbind texture framebuffer
+        self.framebuffer.bind_default();
+
+        // return finished font texture id
+        Ok(self.framebuffer.tex_id)
     }
 }
 

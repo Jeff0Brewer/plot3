@@ -50,9 +50,9 @@ impl Window {
                     for scene in &scenes { scene.drop(); }
                 },
                 Event::RedrawRequested(_) => {
-                    //unsafe { gl::Clear(gl::COLOR_BUFFER_BIT); }
-                    //for scene in &scenes { scene.draw().unwrap(); }
-                    //self.ctx.swap_buffers().unwrap();
+                    unsafe { gl::Clear(gl::COLOR_BUFFER_BIT); }
+                    for scene in &scenes { scene.draw().unwrap(); }
+                    self.ctx.swap_buffers().unwrap();
                 },
                 _ => ()
             }
@@ -288,11 +288,15 @@ impl Bind for Texture {
 
 pub struct TextureFramebuffer {
     id: GLuint,
-    tex_id: GLuint
+    pub tex_id: GLuint,
+    pub width: i32,
+    pub height: i32,
+    window_width: i32,
+    window_height: i32
 }
 
 impl TextureFramebuffer {
-    pub fn new(width: i32, height: i32) -> Result<Self, FramebufferError> {
+    pub fn new(width: i32, height: i32, window_width: i32, window_height: i32) -> Result<Self, FramebufferError> {
         let mut id: GLuint = 0;
         let mut tex_id: GLuint = 0;
         unsafe {
@@ -321,11 +325,14 @@ impl TextureFramebuffer {
             }
             gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
         }
-        Ok(Self { id, tex_id })
+        Ok(Self { id, tex_id, width, height, window_width, window_height })
     }
 
-    pub fn bind_default() {
-        unsafe { gl::BindFramebuffer(gl::FRAMEBUFFER, 0); }
+    pub fn bind_default(&self) {
+        unsafe {
+            gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
+            gl::Viewport(0, 0, self.window_width, self.window_height);
+        }
     }
 }
 
@@ -340,7 +347,10 @@ impl Drop for TextureFramebuffer {
 
 impl Bind for TextureFramebuffer {
     fn bind(&self) {
-        unsafe { gl::BindFramebuffer(gl::FRAMEBUFFER, self.id); }
+        unsafe {
+            gl::BindFramebuffer(gl::FRAMEBUFFER, self.id);
+            gl::Viewport(0, 0, self.width, self.height);
+        }
     }
 }
 
