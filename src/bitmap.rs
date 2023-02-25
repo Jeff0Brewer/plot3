@@ -15,9 +15,9 @@ pub struct Bitmap {
 }
 
 struct BitmapUniforms {
+    pub map_size: i32,
+    pub char_size: i32,
     pub offset: i32,
-    pub dimensions: i32,
-    pub scale: i32
 }
 
 impl Bitmap {
@@ -35,15 +35,15 @@ impl Bitmap {
         vao.set_attribute::<BitmapVert>(pos_loc, 2, 0);
         vao.set_attribute::<BitmapVert>(tcoord_loc, 2, 2);
 
+        let map_size_cname = CString::new("map_size")?;
+        let char_size_cname = CString::new("char_size")?;
         let offset_cname = CString::new("offset")?;
-        let dimensions_cname = CString::new("dimensions")?;
-        let scale_cname = CString::new("scale")?;
         let locations: BitmapUniforms;
         unsafe {
             locations = BitmapUniforms {
-                offset: gl::GetUniformLocation(program.id, offset_cname.as_ptr()),
-                dimensions: gl::GetUniformLocation(program.id, dimensions_cname.as_ptr()),
-                scale: gl::GetUniformLocation(program.id, scale_cname.as_ptr())
+                map_size: gl::GetUniformLocation(program.id, map_size_cname.as_ptr()),
+                char_size: gl::GetUniformLocation(program.id, char_size_cname.as_ptr()),
+                offset: gl::GetUniformLocation(program.id, offset_cname.as_ptr())
             };
         }
 
@@ -54,32 +54,42 @@ impl Bitmap {
     }
 
     pub fn gen_font_map(&self, font_file: &str) -> Result<(), BitmapError> {
+        const MAP_SIZE: [f32; 2] = [800.0, 800.0];
+        let row_len = (MAP_SIZE[0] / FONT_SIZE).floor() as usize;
+        let padding: f32 = FONT_SIZE * 0.5;
+        let line_height: f32 = FONT_SIZE * 1.25;
+
         let font_bytes = &fs::read(font_file)? as &[u8];
         let font = Font::from_bytes(font_bytes, FontSettings::default())?;
+
         self.program.bind();
         self.vao.bind();
-        const TEXTURE_SIZE: f32 = 800.0;
-        let scale = FONT_SIZE / TEXTURE_SIZE;
-        let mut offset: [f32; 2] = [-1.0 + scale, -1.0 + scale];
-        unsafe { gl::Uniform1f(self.locations.scale, scale); }
+        unsafe {
+            gl::Uniform2fv(self.locations.map_size, 1, &MAP_SIZE[0]);
+            gl::ClearColor(0.0, 0.0, 0.0, 0.0);
+            gl::Clear(gl::COLOR_BUFFER_BIT);
+        }
+
         for i in 0..self.chars.len() {
             let (metrics, bitmap) = font.rasterize(self.chars[i], FONT_SIZE * FONT_SUPERSAMPLE);
-            let dimensions: [f32; 2] = [
-                metrics.width as f32 / FONT_SIZE,
-                metrics.height as f32 / FONT_SIZE
+            let char_size: [f32; 2] = [
+                metrics.width as f32 / FONT_SUPERSAMPLE,
+                metrics.height as f32 / FONT_SUPERSAMPLE
             ];
+            let char_alignment = metrics.bounds.ymin / FONT_SUPERSAMPLE;
+            let off_x = (i % row_len) as f32 * FONT_SIZE;
+            let off_y = (i / row_len) as f32 * line_height;
+            let offset: [f32; 2] = [
+                off_x + padding,
+                off_y + char_alignment + padding
+            ];
+            let rgba = rgba_from_bytes(bitmap);
+            let texture = Texture::new(&rgba, metrics.width as i32, metrics.height as i32);
             unsafe {
+                gl::Uniform2fv(self.locations.char_size, 1, &char_size[0]);
                 gl::Uniform2fv(self.locations.offset, 1, &offset[0]);
-                gl::Uniform2fv(self.locations.dimensions, 1, &dimensions[0]);
+                gl::DrawArrays(gl::TRIANGLE_STRIP, 0, NUM_VERTEX);
             }
-            offset[0] += scale;
-            if offset[0] > 1.0 {
-                offset[0] = -1.0;
-                offset[1] += scale;
-            }
-            let data = rgba_from_bitmap(bitmap);
-            let texture = Texture::new(&data, metrics.width as i32, metrics.height as i32);
-            unsafe { gl::DrawArrays(gl::TRIANGLE_STRIP, 0, NUM_VERTEX); }
             texture.drop();
         }
         Ok(())
@@ -95,11 +105,11 @@ impl Drop for Bitmap {
     }
 }
 
-fn rgba_from_bitmap(bitmap: Vec<u8>) -> Vec<u8> {
-    let mut rgba: Vec<u8> = vec![0; bitmap.len() * 4];
-    for i in 0..bitmap.len() {
+fn rgba_from_bytes(bytes: Vec<u8>) -> Vec<u8> {
+    let mut rgba: Vec<u8> = vec![0; bytes.len() * 4];
+    for i in 0..bytes.len() {
         for j in 0..3 {
-            rgba[i*4 + j] = bitmap[i];
+            rgba[i*4 + j] = bytes[i];
         }
         rgba[i*4 + 3] = 255;
     }
@@ -107,14 +117,14 @@ fn rgba_from_bitmap(bitmap: Vec<u8>) -> Vec<u8> {
 }
 
 static CHAR_SET: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-static FONT_SIZE: f32 = 30.0;
+static FONT_SIZE: f32 = 31.0;
 static FONT_SUPERSAMPLE: f32 = 2.0;
 static NUM_VERTEX: i32 = 4;
 static VERTICES: [BitmapVert; 4] = bmp_vert![
-    [0.5, 0.5, 1.0, 0.0],
-    [0.5, -0.5, 1.0, 1.0],
-    [-0.5, 0.5, 0.0, 0.0],
-    [-0.5, -0.5, 0.0, 1.0]
+    [0.5, 1.0, 1.0, 0.0],
+    [0.5, 0.0, 1.0, 1.0],
+    [-0.5, 1.0, 0.0, 0.0],
+    [-0.5, 0.0, 0.0, 1.0]
 ];
 
 extern crate thiserror;
