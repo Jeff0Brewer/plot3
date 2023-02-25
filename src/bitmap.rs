@@ -48,20 +48,22 @@ impl Bitmap {
         }
 
         let chars: Vec<char> = CHAR_SET.chars().collect();
-        Ok(
-            Self { framebuffer, program, vao, buffer, chars, locations }
-        )
+        Ok(Self { framebuffer, program, vao, buffer, chars, locations })
     }
 
+    // create texture with rasterized chars for single font face
     pub fn gen_font_map(&self, font_file: &str) -> Result<(), BitmapError> {
         const MAP_SIZE: [f32; 2] = [800.0, 800.0];
-        let row_len = (MAP_SIZE[0] / FONT_SIZE).floor() as usize;
+        // character layout params
+        let char_per_row = (MAP_SIZE[0] / FONT_SIZE).floor() as usize;
         let padding: f32 = FONT_SIZE * 0.5;
         let line_height: f32 = FONT_SIZE * 1.25;
 
+        // get fontdue font for rasterization
         let font_bytes = &fs::read(font_file)? as &[u8];
         let font = Font::from_bytes(font_bytes, FontSettings::default())?;
 
+        // bind constant gl resources
         self.program.bind();
         self.vao.bind();
         unsafe {
@@ -70,6 +72,7 @@ impl Bitmap {
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
 
+        // rasterize and draw characters to texture
         for i in 0..self.chars.len() {
             let (metrics, bitmap) = font.rasterize(self.chars[i], FONT_SIZE * FONT_SUPERSAMPLE);
             let char_size: [f32; 2] = [
@@ -77,12 +80,13 @@ impl Bitmap {
                 metrics.height as f32 / FONT_SUPERSAMPLE
             ];
             let char_alignment = metrics.bounds.ymin / FONT_SUPERSAMPLE;
-            let off_x = (i % row_len) as f32 * FONT_SIZE;
-            let off_y = (i / row_len) as f32 * line_height;
+            let off_x = (i % char_per_row) as f32 * FONT_SIZE;
+            let off_y = (i / char_per_row) as f32 * line_height;
             let offset: [f32; 2] = [
                 off_x + padding,
                 off_y + char_alignment + padding
             ];
+            // get rgba data from byte array for compatibility with gl color formats
             let rgba = rgba_from_bytes(bitmap);
             let texture = Texture::new(&rgba, metrics.width as i32, metrics.height as i32);
             unsafe {
@@ -90,6 +94,7 @@ impl Bitmap {
                 gl::Uniform2fv(self.locations.offset, 1, &offset[0]);
                 gl::DrawArrays(gl::TRIANGLE_STRIP, 0, NUM_VERTEX);
             }
+            // free drawn character texture
             texture.drop();
         }
         Ok(())
@@ -105,17 +110,6 @@ impl Drop for Bitmap {
     }
 }
 
-fn rgba_from_bytes(bytes: Vec<u8>) -> Vec<u8> {
-    let mut rgba: Vec<u8> = vec![0; bytes.len() * 4];
-    for i in 0..bytes.len() {
-        for j in 0..3 {
-            rgba[i*4 + j] = bytes[i];
-        }
-        rgba[i*4 + 3] = 255;
-    }
-    rgba
-}
-
 static CHAR_SET: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 static FONT_SIZE: f32 = 31.0;
 static FONT_SUPERSAMPLE: f32 = 2.0;
@@ -126,6 +120,17 @@ static VERTICES: [BitmapVert; 4] = bmp_vert![
     [-0.5, 1.0, 0.0, 0.0],
     [-0.5, 0.0, 0.0, 1.0]
 ];
+
+fn rgba_from_bytes(bytes: Vec<u8>) -> Vec<u8> {
+    let mut rgba: Vec<u8> = vec![0; bytes.len() * 4];
+    for i in 0..bytes.len() {
+        for j in 0..3 {
+            rgba[i*4 + j] = bytes[i];
+        }
+        rgba[i*4 + 3] = 255;
+    }
+    rgba
+}
 
 extern crate thiserror;
 use thiserror::Error;
