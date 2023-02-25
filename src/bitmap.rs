@@ -34,12 +34,7 @@ impl Bitmap {
 
     pub fn gen_font_map(&self, font_file: &str) -> Result<(), BitmapError> {
         let font_bytes = &fs::read(font_file)? as &[u8];
-        let font_result = Font::from_bytes(font_bytes, FontSettings::default());
-        // verbose error check since FontResult returns &str for error type
-        if let Err(err) = font_result {
-            return Err(BitmapError::FontError(err.to_string()));
-        }
-        let font = font_result.unwrap();
+        let font = Font::from_bytes(font_bytes, FontSettings::default())?;
         self.program.bind();
         for &c in &self.chars {
             let (metrics, bitmap) = font.rasterize(c, FONT_SIZE);
@@ -81,4 +76,10 @@ pub enum BitmapError {
     IoError(#[from] std::io::Error),
     #[error("{0}")]
     FontError(String)
+}
+
+impl From<&str> for BitmapError {
+    fn from(s: &str) -> Self {
+        Self::FontError(s.to_string())
+    }
 }
