@@ -37,6 +37,7 @@ impl Window {
 
     // begin draw loop with generic user defined scenes
     pub fn run(self, scenes: Vec<Scene>) -> () {
+        self.ctx.swap_buffers().unwrap();
         self.event_loop.run(move |event, _, control_flow| {
             *control_flow = ControlFlow::Wait;
             match event {
@@ -49,9 +50,9 @@ impl Window {
                     for scene in &scenes { scene.drop(); }
                 },
                 Event::RedrawRequested(_) => {
-                    unsafe { gl::Clear(gl::COLOR_BUFFER_BIT); }
-                    for scene in &scenes { scene.draw().unwrap(); }
-                    self.ctx.swap_buffers().unwrap();
+                    //unsafe { gl::Clear(gl::COLOR_BUFFER_BIT); }
+                    //for scene in &scenes { scene.draw().unwrap(); }
+                    //self.ctx.swap_buffers().unwrap();
                 },
                 _ => ()
             }
@@ -260,11 +261,11 @@ impl Texture {
             gl::TexImage2D(
                 gl::TEXTURE_2D,
                 0,
-                gl::RGB as i32,
+                gl::RGBA as i32,
                 width,
                 height,
                 0,
-                gl::RGB,
+                gl::RGBA,
                 gl::UNSIGNED_BYTE,
                 &data[0] as *const _ as *const std::ffi::c_void
             );
