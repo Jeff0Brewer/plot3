@@ -31,6 +31,8 @@ impl Window {
         unsafe {
             let ctx = ctx.make_current().unwrap();
             gl::load_with(|ptr| ctx.get_proc_address(ptr) as *const _);
+            gl::Enable(gl::BLEND);
+            gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
             Ok(Self { ctx, event_loop })
         }
     }

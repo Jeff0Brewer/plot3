@@ -165,10 +165,9 @@ pub const VERT_PER_CHAR: usize = 6; // num vertices per char in output vertex da
 fn rgba_from_bytes(bytes: Vec<u8>) -> Vec<u8> {
     let mut rgba: Vec<u8> = vec![0; bytes.len() * 4];
     for i in 0..bytes.len() {
-        for j in 0..3 {
+        for j in 0..4 {
             rgba[i*4 + j] = bytes[i];
         }
-        rgba[i*4 + 3] = 255;
     }
     rgba
 }
