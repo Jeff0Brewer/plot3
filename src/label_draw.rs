@@ -34,29 +34,30 @@ impl LabelDrawer {
             // error if drawing requested before font bitmap generation
             return Err(LabelError::FontMapError);
         }
-        // create buffer from label chars and bitmap data
+        // create buffer data from label chars and bitmap data
         let mut vertices = Vec::<BitmapVert>::new();
         let mut offset: f32 = 0.0;
+        let kearning = 2.0;
         for c in label.chars() {
             if let ' ' = c {
+                // fixed width for space character
                 offset += 20.0;
                 continue;
             }
-            let ind_offset: usize;
+            let vert_ind: usize;
             match self.bitmap_inds.get(&c) {
-                Some(&index) => { ind_offset = index; },
+                Some(&index) => { vert_ind = index; },
                 None => { return Err(LabelError::CharacterError(c)) }
             }
-            let mut char_verts = Vec::<BitmapVert>::new();
+            // character width taken from first vertex x coordinate
+            let char_spacing = kearning + self.bitmap_verts[vert_ind].0[0];
+            offset += char_spacing;
             for i in 0..VERT_PER_CHAR {
-                let mut vert = self.bitmap_verts[i + ind_offset].clone();
+                let mut vert = self.bitmap_verts[i + vert_ind].clone();
                 vert.0[0] += offset;
-                char_verts.push(vert);
+                vertices.push(vert);
             }
-            // width of character from vertex position x coord
-            let char_width = self.bitmap_verts[ind_offset].0[0]*2.0;
-            offset += char_width;
-            vertices.append(&mut char_verts);
+            offset += char_spacing;
         }
 
         // create gl resources
@@ -76,16 +77,7 @@ impl LabelDrawer {
         let buffers = vec![buffer];
         let textures = vec![self.font_texture];
         let draw_passes = vec![
-            DrawPass::new(
-                gl::TRIANGLES,
-                0,
-                0,
-                Some(0),
-                vec![],
-                vec![],
-                0,
-                vertices.len() as i32
-            )
+            DrawPass::new( gl::TRIANGLES, 0, 0, Some(0), vec![], vec![], 0, vertices.len() as i32)
         ];
         Ok(Scene::new(draw_passes, programs, vaos, buffers, textures, vec![], vec![]))
     }

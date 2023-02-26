@@ -115,7 +115,7 @@ impl Bitmap {
             let avg_alignment = padding * 0.5;
 
             // quad size / 2
-            let w2 = FONT_SIZE * 0.5;
+            let w2 = char_size[0] * 0.5;
             let h2 = line_height * 0.5;
             // bitmap texture coords for +/- x/y
             let tpx = (grid_x + w2) / self.map_dims[0];
@@ -151,8 +151,8 @@ impl Drop for Bitmap {
 }
 
 static CHAR_SET: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-static FONT_SIZE: f32 = 31.0;
-static FONT_SUPERSAMPLE: f32 = 2.0;
+static FONT_SIZE: f32 = 30.0;
+static FONT_SUPERSAMPLE: f32 = 3.0;
 static NUM_VERTEX: i32 = 4;
 static VERTICES: [BitmapVert; 4] = bmp_arr![
     [0.5, 1.0, 1.0, 0.0],
