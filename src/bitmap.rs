@@ -3,7 +3,6 @@ extern crate gl;
 use crate::vertices::{BitmapVert, bmp_vert, bmp_arr};
 use crate::gl_wrap::{TextureFramebuffer, Program, Buffer, VertexArray, Texture, Bind, Drop};
 use fontdue::{Font, FontSettings};
-use gl::types::GLuint;
 use std::collections::HashMap;
 use std::ffi::CString;
 use std::fs;
@@ -112,15 +111,17 @@ impl Bitmap {
             // free drawn character texture
             texture.drop();
 
-            // quad size / 2
-            let w2 = char_size[0] / 2.0;
-            let h2 = line_height / 2.0;
-            // bitmap texture coords for +/- x/y
-            let tpx = grid_x + FONT_SIZE / 2.0;
-            let tnx = grid_x - FONT_SIZE / 2.0;
-            let tpy = grid_y + line_height / 2.0;
-            let tny = grid_y - line_height / 2.0;
             let len = vertices.len();
+            let avg_alignment = padding * 0.5;
+
+            // quad size / 2
+            let w2 = FONT_SIZE * 0.5;
+            let h2 = line_height * 0.5;
+            // bitmap texture coords for +/- x/y
+            let tpx = (grid_x + w2) / self.map_dims[0];
+            let tnx = (grid_x - w2) / self.map_dims[0];
+            let tpy = (grid_y + h2 + avg_alignment) / self.map_dims[1];
+            let tny = (grid_y - h2 + avg_alignment) / self.map_dims[1];
             vertices.append(&mut bmp_vert![
                 [ w2,  h2, tpx, tpy],
                 [-w2,  h2, tnx, tpy],
@@ -159,7 +160,7 @@ static VERTICES: [BitmapVert; 4] = bmp_arr![
     [-0.5, 1.0, 0.0, 0.0],
     [-0.5, 0.0, 0.0, 1.0]
 ];
-pub static VERT_PER_CHAR: usize = 6; // num vertices per char in output vertex data
+pub const VERT_PER_CHAR: usize = 6; // num vertices per char in output vertex data
 
 fn rgba_from_bytes(bytes: Vec<u8>) -> Vec<u8> {
     let mut rgba: Vec<u8> = vec![0; bytes.len() * 4];

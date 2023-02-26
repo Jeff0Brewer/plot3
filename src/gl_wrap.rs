@@ -244,6 +244,7 @@ impl Bind for VertexArray {
     }
 }
 
+#[derive(Copy, Clone)]
 pub struct Texture {
     id: GLuint
 }
@@ -272,6 +273,11 @@ impl Texture {
         }
         Self { id }
     }
+
+    pub fn new_blank(width: i32, height: i32) -> Self {
+        let data: Vec<u8> = vec![0; (width*height*4) as usize];
+        Self::new(&data, width, height)
+    }
 }
 
 impl Drop for Texture {
@@ -299,7 +305,7 @@ impl TextureFramebuffer {
     pub fn new(width: i32, height: i32, window_width: i32, window_height: i32)
         -> Result<Self, FramebufferError> {
         let mut id: GLuint = 0;
-        let texture = Texture::new(&[], width, height);
+        let texture = Texture::new_blank(width, height);
         unsafe {
             gl::BindTexture(gl::TEXTURE_2D, 0); // unbind fb texture
             gl::GenFramebuffers(1, &mut id);

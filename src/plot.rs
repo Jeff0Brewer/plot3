@@ -3,6 +3,7 @@ extern crate glam;
 use glam::{Mat4, Vec3};
 use crate::gl_wrap::Window;
 use crate::axis::Axis;
+use crate::label_draw::LabelDrawer;
 use crate::scene::Scene;
 
 // values for default camera initialization
@@ -15,7 +16,8 @@ pub struct Plot {
     window: Window,
     scene: Scene,
     mvp: [f32; 16],
-    pub axis: Axis
+    pub axis: Axis,
+    pub labels: LabelDrawer
 }
 
 impl Plot {
@@ -36,15 +38,18 @@ impl Plot {
         );
         let mvp = proj_matrix.mul_mat4(&view_matrix).to_cols_array();
         let axis = Axis::new();
+        let mut labels = LabelDrawer::new(width as i32, height as i32)?;
+        labels.set_font("./resources/Roboto-Regular.ttf")?;
 
         unsafe { gl::ClearColor(0.1, 0.1, 0.1, 1.0); }
 
-        Ok(Self { window, scene, mvp, axis })
+        Ok(Self { window, scene, mvp, axis, labels })
     }
 
     pub fn display(self) -> Result<(), PlotError> {
         let axis_scene = self.axis.get_scene(self.mvp.clone())?;
-        self.window.run(vec![axis_scene, self.scene]);
+        let label_scene = self.labels.get_label_scene("Glady 0123")?;
+        self.window.run(vec![axis_scene, label_scene, self.scene]);
         Ok(())
     }
 }
@@ -55,6 +60,7 @@ extern crate glutin;
 use glutin::{CreationError};
 use crate::gl_wrap::ShaderError;
 use crate::axis::AxisError;
+use crate::label_draw::LabelError;
 #[derive(Error, Debug)]
 pub enum PlotError {
     #[error("{0}")]
@@ -62,5 +68,7 @@ pub enum PlotError {
     #[error("{0}")]
     ShaderError(#[from] ShaderError),
     #[error("{0}")]
-    AxisError(#[from] AxisError)
+    AxisError(#[from] AxisError),
+    #[error("{0}")]
+    LabelError(#[from] LabelError)
 }
