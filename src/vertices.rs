@@ -8,14 +8,20 @@ macro_rules! pos_vert {
 }
 pub(crate) use pos_vert;
 
+#[derive(Copy, Clone)]
 #[repr(C, packed)]
 pub struct BitmapVert(pub [f32; 2], pub [f32; 2]);
 // convert Nx4 array into BitmapVert arr
+macro_rules! bmp_arr {
+    ($([$a:expr, $b:expr, $c:expr, $d:expr]),*) => {
+        [$(BitmapVert([$a, $b], [$c, $d]),)*]
+    }
+}
+pub(crate) use bmp_arr;
+
 macro_rules! bmp_vert {
     ($([$a:expr, $b:expr, $c:expr, $d:expr]),*) => {
-        [$(
-            BitmapVert([$a, $b], [$c, $d]),
-        )*]
+        vec![$(BitmapVert([$a, $b], [$c, $d]),)*]
     }
 }
 pub(crate) use bmp_vert;
