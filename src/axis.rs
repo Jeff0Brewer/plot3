@@ -56,14 +56,15 @@ impl Axis {
         let programs = vec![solid_program];
         let vaos = vec![line_vao, tri_vao];
         let buffers = vec![line_buffer, tri_buffer];
+        let textures = vec![];
         let matrices = vec![mvp_matrix];
         let vectors = vec![border_color, tick_color];
         let draw_passes = vec![
-            DrawPass::new(gl::LINES, 0, 0, vec![0], vec![1], border_line_len as i32, (lines.len() - border_line_len) as i32),
-            DrawPass::new(gl::LINES, 0, 0, vec![0], vec![0], 0, border_line_len as i32),
-            DrawPass::new(gl::TRIANGLES, 0, 1, vec![0], vec![0], 0, tris.len() as i32)
+            DrawPass::new(gl::LINES, 0, 0, None, vec![0], vec![1], border_line_len as i32, (lines.len() - border_line_len) as i32),
+            DrawPass::new(gl::LINES, 0, 0, None, vec![0], vec![0], 0, border_line_len as i32),
+            DrawPass::new(gl::TRIANGLES, 0, 1, None, vec![0], vec![0], 0, tris.len() as i32)
         ];
-        let scene = Scene::new(draw_passes, programs, vaos, buffers, matrices, vectors);
+        let scene = Scene::new(draw_passes, programs, vaos, buffers, textures, matrices, vectors);
         Ok(scene)
     }
 

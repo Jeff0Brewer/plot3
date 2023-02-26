@@ -1,6 +1,6 @@
 extern crate gl;
 use gl::types::GLenum;
-use crate::gl_wrap::{Program, VertexArray, UniformMatrix, UniformVector, Buffer, Bind, Drop};
+use crate::gl_wrap::{Program, VertexArray, UniformMatrix, UniformVector, Buffer, Texture, Bind, Drop};
 use crate::gl_wrap::{UniformError};
 
 // struct containing all info for single gl draw operation
@@ -8,6 +8,7 @@ pub struct DrawPass {
     draw_type: GLenum,
     program_ind: usize,
     vao_ind: usize,
+    texture_ind: Option<usize>,
     matrix_inds: Vec<usize>,
     vector_inds: Vec<usize>,
     draw_start: i32,
@@ -19,6 +20,7 @@ impl DrawPass {
         draw_type: GLenum,
         program_ind: usize,
         vao_ind: usize,
+        texture_ind: Option<usize>,
         matrix_inds: Vec<usize>,
         vector_inds: Vec<usize>,
         draw_start: i32,
@@ -28,6 +30,7 @@ impl DrawPass {
             draw_type,
             program_ind,
             vao_ind,
+            texture_ind,
             matrix_inds,
             vector_inds,
             draw_start,
@@ -39,12 +42,14 @@ impl DrawPass {
         &self,
         programs: &Vec<Program>,
         vaos: &Vec<VertexArray>,
+        textures: &Vec<Texture>,
         matrices: &Vec<UniformMatrix>,
         vectors: &Vec<UniformVector>
     ) -> Result<(), UniformError> {
         let program = &programs[self.program_ind];
         program.bind();
         vaos[self.vao_ind].bind();
+        if let Some(ind) = self.texture_ind { textures[ind].bind(); }
         for &i in &self.matrix_inds { matrices[i].apply(program.id)?; }
         for &i in &self.vector_inds { vectors[i].apply(program.id)?; }
         unsafe { gl::DrawArrays(self.draw_type, self.draw_start, self.draw_end) }
@@ -58,6 +63,7 @@ pub struct Scene {
     programs: Vec<Program>,
     vaos: Vec<VertexArray>,
     buffers: Vec<Buffer>,
+    textures: Vec<Texture>,
     matrices: Vec<UniformMatrix>,
     vectors: Vec<UniformVector>
 }
@@ -68,10 +74,11 @@ impl Scene {
         programs: Vec<Program>,
         vaos: Vec<VertexArray>,
         buffers: Vec<Buffer>,
+        textures: Vec<Texture>,
         matrices: Vec<UniformMatrix>,
         vectors: Vec<UniformVector>
     ) -> Self {
-        Self { draws, programs, vaos, buffers, matrices, vectors }
+        Self { draws, programs, vaos, buffers, textures, matrices, vectors }
     }
 
     pub fn new_empty() -> Self {
@@ -79,15 +86,16 @@ impl Scene {
         let programs = Vec::<Program>::new();
         let vaos = Vec::<VertexArray>::new();
         let buffers = Vec::<Buffer>::new();
+        let textures = Vec::<Texture>::new();
         let matrices = Vec::<UniformMatrix>::new();
         let vectors = Vec::<UniformVector>::new();
-        Self { draws, programs, vaos, buffers, matrices, vectors }
+        Self { draws, programs, vaos, buffers, textures, matrices, vectors }
     }
 
     pub fn draw(&self) -> Result<(), UniformError> {
         for pass in &self.draws {
             // do not pass in buffers since buffer state is stored in vaos
-            pass.draw(&self.programs, &self.vaos, &self.matrices, &self.vectors)?;
+            pass.draw(&self.programs, &self.vaos, &self.textures, &self.matrices, &self.vectors)?;
         }
         Ok(())
     }
@@ -95,6 +103,7 @@ impl Scene {
     pub fn drop(&self) {
         for program in &self.programs { program.drop(); }
         for vao in &self.vaos { vao.drop(); }
+        for texture in &self.textures { texture.drop(); }
         // references stored for buffers only to drop on scene deletion
         for buffer in &self.buffers { buffer.drop(); }
     }
