@@ -11,6 +11,7 @@ pub struct Plot {
     scene: Scene,
     mvp: [f32; 16],
     bg_color: [f32; 3],
+    bounds: Bounds,
     pub axis: Axis,
     pub labels: LabelDrawer
 }
@@ -33,15 +34,16 @@ impl Plot {
         );
         let mvp = proj_matrix.mul_mat4(&view_matrix).to_cols_array();
         let bg_color = DEFAULT_BG;
+        let bounds = Bounds::new(1.0, 1.0, 1.0);
         let axis = Axis::new();
         let labels = LabelDrawer::new(width as i32, height as i32)?;
 
-        Ok(Self { window, scene, mvp, bg_color, axis, labels })
+        Ok(Self { window, scene, mvp, bg_color, bounds, axis, labels })
     }
 
     pub fn display(self) -> Result<(), PlotError> {
-        let axis_scene = self.axis.get_scene(self.mvp.clone())?;
-        let label_scene = self.labels.get_scene(self.mvp.clone())?;
+        let axis_scene = self.axis.get_scene(self.mvp.clone(), &self.bounds)?;
+        let label_scene = self.labels.get_scene(self.mvp.clone(), &self.bounds)?;
         unsafe {
             gl::ClearColor(self.bg_color[0], self.bg_color[1], self.bg_color[2], 1.0);
         }
@@ -51,6 +53,28 @@ impl Plot {
 
     pub fn set_background_color(&mut self, color: [f32; 3]) {
         self.bg_color = color;
+    }
+
+    pub fn set_bounds(&mut self, x: f32, y: f32, z: f32) {
+        self.bounds.x = x;
+        self.bounds.y = y;
+        self.bounds.z = z;
+    }
+}
+
+pub struct Bounds {
+    pub x: f32,
+    pub y: f32,
+    pub z: f32
+}
+
+impl Bounds {
+    pub fn new(x: f32, y: f32, z: f32) -> Self {
+        Self { x, y, z }
+    }
+
+    pub fn max(&self) -> f32 {
+        self.x.max(self.y).max(self.x)
     }
 }
 

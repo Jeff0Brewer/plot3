@@ -3,11 +3,11 @@ extern crate glam;
 extern crate alloc;
 use crate::gl_wrap::{Program, Buffer, VertexArray, UniformMatrix, UniformVector};
 use crate::scene::{Scene, DrawPass};
+use crate::plot::Bounds;
 use crate::vertices::PosVert;
 use crate::axis_vert::*;
 
 pub struct Axis {
-    bounds: Bounds,
     border_style: BorderStyle,
     border_color: [f32; 4],
     tick_style: TickStyle,
@@ -18,20 +18,19 @@ pub struct Axis {
 #[allow(dead_code)]
 impl Axis {
     pub fn new() -> Self {
-        let bounds = Bounds::new(1.0, 1.0, 1.0);
         let border_style = BorderStyle::Box;
         let border_color: [f32; 4] = [1.0, 1.0, 1.0, 1.0];
         let tick_style = TickStyle::Grid;
         let tick_color: [f32; 4] = [0.5, 0.5, 0.5, 1.0];
         let tick_count: i32 = 10;
-        Self { bounds, border_style, border_color, tick_style, tick_color, tick_count }
+        Self { border_style, border_color, tick_style, tick_color, tick_count }
     }
 
-    pub fn get_scene(&self, mvp: [f32; 16]) -> Result<Scene, AxisError> {
+    pub fn get_scene(&self, mvp: [f32; 16], bounds: &Bounds) -> Result<Scene, AxisError> {
         // get axis geometry from current fields
-        let (mut lines, tris) = get_axis_border(&self.border_style, &self.bounds);
+        let (mut lines, tris) = get_axis_border(&self.border_style, bounds);
         let border_line_len = lines.len();
-        let mut tick_lines = get_axis_ticks(&self.tick_style, &self.border_style, &self.bounds, &self.tick_count);
+        let mut tick_lines = get_axis_ticks(&self.tick_style, &self.border_style, &bounds, &self.tick_count);
         lines.append(&mut tick_lines);
 
         // init gl resources
@@ -83,11 +82,6 @@ impl Axis {
     pub fn set_tick_color(&mut self, color: [f32; 4]) {
         self.tick_color = color;
     }
-
-    pub fn set_bounds(&mut self, x: f32, y: f32, z: f32) {
-        self.bounds = Bounds::new(x, y, z);
-    }
-
 }
 
 #[allow(dead_code)]
@@ -101,22 +95,6 @@ pub enum TickStyle {
     Tick,
     Grid,
     Blank
-}
-
-pub struct Bounds {
-    pub x: f32,
-    pub y: f32,
-    pub z: f32
-}
-
-impl Bounds {
-    pub fn new(x: f32, y: f32, z: f32) -> Self {
-        Self { x, y, z }
-    }
-
-    pub fn max(&self) -> f32 {
-        self.x.max(self.y).max(self.x)
-    }
 }
 
 extern crate thiserror;
