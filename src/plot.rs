@@ -6,16 +6,11 @@ use crate::axis::Axis;
 use crate::label_draw::LabelDrawer;
 use crate::scene::Scene;
 
-// values for default camera initialization
-const DEFAULT_EYE: Vec3 = Vec3::new(1.5, 1.5, 1.5);
-const DEFAULT_FOV: f32 = 70.0 * 3.14 / 180.0;
-const CAMERA_NEAR: f32 = 0.0;
-const CAMERA_FAR: f32 = 10.0;
-
 pub struct Plot {
     window: Window,
     scene: Scene,
     mvp: [f32; 16],
+    bg_color: [f32; 3],
     pub axis: Axis,
     pub labels: LabelDrawer
 }
@@ -37,23 +32,33 @@ impl Plot {
             Vec3::Y
         );
         let mvp = proj_matrix.mul_mat4(&view_matrix).to_cols_array();
+        let bg_color = DEFAULT_BG;
         let axis = Axis::new();
-        let mut labels = LabelDrawer::new(width as i32, height as i32)?;
-        labels.set_font_face("./resources/Ubuntu-Regular.ttf")?;
-        labels.set_label("Testing 09AZ");
+        let labels = LabelDrawer::new(width as i32, height as i32)?;
 
-        unsafe { gl::ClearColor(0.1, 0.1, 0.1, 1.0); }
-
-        Ok(Self { window, scene, mvp, axis, labels })
+        Ok(Self { window, scene, mvp, bg_color, axis, labels })
     }
 
     pub fn display(self) -> Result<(), PlotError> {
         let axis_scene = self.axis.get_scene(self.mvp.clone())?;
-        let label_scene = self.labels.get_scene()?;
+        let label_scene = self.labels.get_scene(self.mvp.clone())?;
+        unsafe {
+            gl::ClearColor(self.bg_color[0], self.bg_color[1], self.bg_color[2], 1.0);
+        }
         self.window.run(vec![axis_scene, label_scene, self.scene]);
         Ok(())
     }
+
+    pub fn set_background_color(&mut self, color: [f32; 3]) {
+        self.bg_color = color;
+    }
 }
+
+static DEFAULT_EYE: Vec3 = Vec3::new(1.5, 1.5, 1.5);
+static DEFAULT_FOV: f32 = 70.0 * 3.14 / 180.0;
+static CAMERA_NEAR: f32 = 0.0;
+static CAMERA_FAR: f32 = 10.0;
+static DEFAULT_BG: [f32; 3] = [0.1, 0.1, 0.1];
 
 extern crate thiserror;
 use thiserror::Error;

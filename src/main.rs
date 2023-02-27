@@ -9,6 +9,9 @@ mod label_draw;
 use plot::Plot;
 
 fn main() {
-    let plot = Plot::new("test", 800.0, 800.0).unwrap();
+    let mut plot = Plot::new("test", 800.0, 800.0).unwrap();
+    plot.set_background_color([0.05, 0.05, 0.05]);
+    plot.labels.set_font_face("./resources/Ubuntu-Regular.ttf").unwrap();
+    plot.labels.set_label("Testing 19AZ");
     plot.display().unwrap();
 }
