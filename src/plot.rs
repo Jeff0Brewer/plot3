@@ -40,6 +40,7 @@ impl Plot {
         let axis = Axis::new();
         let mut labels = LabelDrawer::new(width as i32, height as i32)?;
         labels.set_font_face("./resources/Ubuntu-Regular.ttf")?;
+        labels.set_label("Testing 09AZ");
 
         unsafe { gl::ClearColor(0.1, 0.1, 0.1, 1.0); }
 
@@ -48,7 +49,7 @@ impl Plot {
 
     pub fn display(self) -> Result<(), PlotError> {
         let axis_scene = self.axis.get_scene(self.mvp.clone())?;
-        let label_scene = self.labels.get_label_scene("Glady 0123")?;
+        let label_scene = self.labels.get_scene()?;
         self.window.run(vec![axis_scene, label_scene, self.scene]);
         Ok(())
     }

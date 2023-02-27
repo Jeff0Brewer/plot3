@@ -10,6 +10,7 @@ pub struct LabelDrawer {
     font_verts: Vec<BitmapVert>,
     font_inds: HashMap<char, usize>,
     font_texture: Texture,
+    label: String,
     params: LabelParams
 }
 
@@ -25,8 +26,13 @@ impl LabelDrawer {
         let font_texture = texture;
         let font_verts = vertices;
         let font_inds = indices;
+        let label = "".to_string();
         let params = LabelParams::new_default();
-        Ok(Self { fontmap, font_texture, font_verts, font_inds, params })
+        Ok(Self { fontmap, font_texture, font_verts, font_inds, label, params })
+    }
+
+    pub fn set_label(&mut self, label: &str) {
+        self.label = label.to_string();
     }
 
     pub fn set_font_face(&mut self, font_file: &str) -> Result<(), LabelError> {
@@ -38,14 +44,14 @@ impl LabelDrawer {
         Ok(())
     }
 
-    pub fn get_label_scene(&self, label: &str) -> Result<Scene, LabelError> {
+    pub fn get_scene(&self) -> Result<Scene, LabelError> {
         // create gl resources
         let program = Program::new_from_files(
             "./shaders/label_vert.glsl",
             "./shaders/label_frag.glsl"
         )?;
         let vao = VertexArray::new();
-        let vertices = self.get_vertex_data(label)?;
+        let vertices = self.get_vertex_data(&self.label)?;
         let buffer = Buffer::new_from(&vertices, gl::STATIC_DRAW);
         let pos_loc = program.get_attrib_location("position")?;
         let tcoord_loc = program.get_attrib_location("a_texCoord")?;
