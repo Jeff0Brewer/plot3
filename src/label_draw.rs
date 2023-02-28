@@ -1,8 +1,10 @@
 extern crate gl;
-use crate::gl_wrap::{Program, VertexArray, Buffer, Texture, Drop};
+extern crate glam;
+use crate::gl_wrap::{Program, VertexArray, Buffer, Texture, UniformMatrix, UniformVector, Drop};
 use crate::font_map::{FontMap, VERT_PER_CHAR};
 use crate::vertices::BitmapVert;
 use crate::scene::{Scene, DrawPass};
+use crate::plot::{Bounds};
 use std::collections::HashMap;
 
 pub struct LabelDrawer {
@@ -44,31 +46,6 @@ impl LabelDrawer {
         Ok(())
     }
 
-    pub fn get_scene(&self) -> Result<Scene, LabelError> {
-        // create gl resources
-        let program = Program::new_from_files(
-            "./shaders/label_vert.glsl",
-            "./shaders/label_frag.glsl"
-        )?;
-        let vao = VertexArray::new();
-        let vertices = self.get_vertex_data(&self.label)?;
-        let buffer = Buffer::new_from(&vertices, gl::STATIC_DRAW);
-        let pos_loc = program.get_attrib_location("position")?;
-        let tcoord_loc = program.get_attrib_location("a_texCoord")?;
-        vao.set_attribute::<BitmapVert>(pos_loc, 2, 0);
-        vao.set_attribute::<BitmapVert>(tcoord_loc, 2, 2);
-
-        // create scene
-        let programs = vec![program];
-        let vaos = vec![vao];
-        let buffers = vec![buffer];
-        let textures = vec![self.font_texture];
-        let draw_passes = vec![
-            DrawPass::new( gl::TRIANGLES, 0, 0, Some(0), vec![], vec![], 0, vertices.len() as i32)
-        ];
-        Ok(Scene::new(draw_passes, programs, vaos, buffers, textures, vec![], vec![]))
-    }
-
     // create buffer data for string of characters from copies of font map vertex data
     fn get_vertex_data(&self, label: &str) -> Result<Vec<BitmapVert>, LabelError> {
         let mut vertices = Vec::<BitmapVert>::new();
@@ -95,7 +72,50 @@ impl LabelDrawer {
             }
             offset += char_spacing;
         }
+        // center text about origin
+        let mid_width = offset * 0.5;
+        for vert in &mut vertices {
+            vert.position[0] -= mid_width;
+        }
         Ok(vertices)
+    }
+
+    pub fn get_scene(&self, mvp: [f32; 16], bounds: &Bounds) -> Result<Scene, LabelError> {
+        // create gl resources
+        let program = Program::new_from_files(
+            "./shaders/label_vert.glsl",
+            "./shaders/label_frag.glsl"
+        )?;
+        let vao = VertexArray::new();
+        let vertices = self.get_vertex_data(&self.label)?;
+        let buffer = Buffer::new_from(&vertices, gl::STATIC_DRAW);
+        let pos_loc = program.get_attrib_location("position")?;
+        let tcoord_loc = program.get_attrib_location("a_texCoord")?;
+        vao.set_attribute::<BitmapVert>(pos_loc, 2, 0);
+        vao.set_attribute::<BitmapVert>(tcoord_loc, 2, 2);
+        let mvp_matrix = UniformMatrix::new("mvp", mvp, vec![program.id])?;
+        let offset_vec = UniformVector::new(
+            "offset",
+            [bounds.x + LABEL_MARGIN, 0.0, bounds.z * 0.5, 1.0],
+            vec![program.id]
+        )?;
+        let alignment_vec = UniformVector::new(
+            "alignment",
+            [bounds.x + LABEL_MARGIN, 0.0, bounds.z, 1.0],
+            vec![program.id]
+        )?;
+
+        // create scene
+        let programs = vec![program];
+        let vaos = vec![vao];
+        let buffers = vec![buffer];
+        let textures = vec![self.font_texture];
+        let matrices = vec![mvp_matrix];
+        let vectors = vec![offset_vec, alignment_vec];
+        let draw_passes = vec![
+            DrawPass::new(gl::TRIANGLES, 0, 0, Some(0), vec![0], vec![0, 1], 0, vertices.len() as i32)
+        ];
+        Ok(Scene::new(draw_passes, programs, vaos, buffers, textures, matrices, vectors))
     }
 }
 
@@ -109,11 +129,12 @@ impl LabelParams {
 }
 
 static DEFAULT_FONT: &str = "./resources/Ubuntu-Regular.ttf";
+static LABEL_MARGIN: f32 = 0.1;
 
 extern crate thiserror;
 use thiserror::Error;
 use crate::font_map::FontMapError;
-use crate::gl_wrap::ProgramError;
+use crate::gl_wrap::{ProgramError, UniformError};
 
 #[derive(Error, Debug)]
 pub enum LabelError {
@@ -121,6 +142,8 @@ pub enum LabelError {
     FontMapError(#[from] FontMapError),
     #[error("{0}")]
     ProgramError(#[from] ProgramError),
+    #[error("{0}")]
+    UniformError(#[from] UniformError),
     #[error("Invalid character '{0}'")]
     CharacterError(char)
 }

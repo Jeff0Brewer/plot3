@@ -78,7 +78,7 @@ impl Bounds {
     }
 }
 
-static DEFAULT_EYE: Vec3 = Vec3::new(1.5, 1.5, 1.5);
+pub static DEFAULT_EYE: Vec3 = Vec3::new(1.5, 1.5, 1.5);
 static DEFAULT_FOV: f32 = 70.0 * 3.14 / 180.0;
 static CAMERA_NEAR: f32 = 0.0;
 static CAMERA_FAR: f32 = 10.0;
