@@ -2,7 +2,7 @@ extern crate gl;
 extern crate glam;
 use crate::gl_wrap::{Program, VertexArray, Buffer, Texture, UniformMatrix, UniformVector, Drop};
 use crate::font_map::{FontMap, VERT_PER_CHAR};
-use crate::vertices::BitmapVert;
+use crate::vertices::{BitmapVert, TextVert, bmp_to_text_vert};
 use crate::scene::{Scene, DrawPass};
 use crate::plot::{Bounds};
 use std::collections::HashMap;
@@ -46,9 +46,9 @@ impl LabelDrawer {
         Ok(())
     }
 
-    // create buffer data for string of characters from copies of font map vertex data
-    fn get_vertex_data(&self, label: &str) -> Result<Vec<BitmapVert>, LabelError> {
-        let mut vertices = Vec::<BitmapVert>::new();
+    fn get_vert_data(&self, label: &str, position: [f32; 3])
+    -> Result<Vec<TextVert>, LabelError> {
+        let mut vertices = Vec::<TextVert>::new();
         let mut offset: f32 = 0.0;
         for c in label.chars() {
             if let ' ' = c {
@@ -66,8 +66,8 @@ impl LabelDrawer {
             let char_spacing = self.font_verts[vert_ind].position[0] + self.params.kearning;
             offset += char_spacing;
             for i in 0..VERT_PER_CHAR {
-                let mut vert = self.font_verts[i + vert_ind].clone();
-                vert.position[0] += offset; // offset vertex in x
+                let mut vert = bmp_to_text_vert!(self.font_verts[i + vert_ind], position);
+                vert.offset[0] += offset; // layout text on x axis
                 vertices.push(vert);
             }
             offset += char_spacing;
@@ -75,8 +75,9 @@ impl LabelDrawer {
         // center text about origin
         let mid_width = offset * 0.5;
         for vert in &mut vertices {
-            vert.position[0] -= mid_width;
+            vert.offset[0] -= mid_width;
         }
+
         Ok(vertices)
     }
 
@@ -84,24 +85,21 @@ impl LabelDrawer {
         // create gl resources
         let program = Program::new_from_files(
             "./shaders/label_vert.glsl",
-            "./shaders/label_frag.glsl"
+            "./shaders/text_frag.glsl"
         )?;
         let vao = VertexArray::new();
-        let vertices = self.get_vertex_data(&self.label)?;
+        let vertices = self.get_vert_data(&self.label, [bounds.x + LABEL_MARGIN, 0.0, 0.5 * bounds.z])?;
         let buffer = Buffer::new_from(&vertices, gl::STATIC_DRAW);
         let pos_loc = program.get_attrib_location("position")?;
+        let offset_loc = program.get_attrib_location("offset")?;
         let tcoord_loc = program.get_attrib_location("a_texCoord")?;
-        vao.set_attribute::<BitmapVert>(pos_loc, 2, 0);
-        vao.set_attribute::<BitmapVert>(tcoord_loc, 2, 2);
+        vao.set_attribute::<TextVert>(pos_loc, 3, 0);
+        vao.set_attribute::<TextVert>(offset_loc, 2, 3);
+        vao.set_attribute::<TextVert>(tcoord_loc, 2, 5);
         let mvp_matrix = UniformMatrix::new("mvp", mvp, vec![program.id])?;
-        let offset_vec = UniformVector::new(
-            "offset",
-            [bounds.x + LABEL_MARGIN, 0.0, bounds.z * 0.5, 1.0],
-            vec![program.id]
-        )?;
-        let alignment_vec = UniformVector::new(
+        let align_vec = UniformVector::new(
             "alignment",
-            [bounds.x + LABEL_MARGIN, 0.0, bounds.z, 1.0],
+            [bounds.x + LABEL_MARGIN, 0.0, bounds.z + LABEL_MARGIN, 1.0],
             vec![program.id]
         )?;
 
@@ -111,9 +109,9 @@ impl LabelDrawer {
         let buffers = vec![buffer];
         let textures = vec![self.font_texture];
         let matrices = vec![mvp_matrix];
-        let vectors = vec![offset_vec, alignment_vec];
+        let vectors = vec![align_vec];
         let draw_passes = vec![
-            DrawPass::new(gl::TRIANGLES, 0, 0, Some(0), vec![0], vec![0, 1], 0, vertices.len() as i32)
+            DrawPass::new(gl::TRIANGLES, 0, 0, Some(0), vec![0], vec![0], 0, vertices.len() as i32)
         ];
         Ok(Scene::new(draw_passes, programs, vaos, buffers, textures, matrices, vectors))
     }

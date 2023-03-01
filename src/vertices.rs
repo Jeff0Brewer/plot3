@@ -10,6 +10,13 @@ pub struct BitmapVert {
     pub texcoord: [f32; 2]
 }
 
+#[repr(C, packed)]
+pub struct TextVert {
+    pub position: [f32; 3],
+    pub offset: [f32; 2],
+    pub texcoord: [f32; 2]
+}
+
 // convert Nx3 array into PosVert vec
 macro_rules! pos_vert {
     ($($pos:expr),*) => {
@@ -39,6 +46,18 @@ macro_rules! bmp_vert {
     }
 }
 
+// convert bitmap vert and 3d position to text vert
+macro_rules! bmp_to_text_vert {
+    ($bmp:expr, $pos:expr) => {
+        TextVert {
+            position: $pos,
+            offset: $bmp.position,
+            texcoord: $bmp.texcoord
+        }
+    }
+}
+
 pub(crate) use pos_vert;
 pub(crate) use bmp_arr;
 pub(crate) use bmp_vert;
+pub(crate) use bmp_to_text_vert;
