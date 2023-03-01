@@ -1,6 +1,6 @@
 extern crate gl;
 use gl::types::GLenum;
-use crate::gl_wrap::{Program, VertexArray, UniformMatrix, UniformVector, Buffer, Texture, Bind, Drop};
+use crate::gl_wrap::{Program, VertexArray, UniformMat, UniformVec, Buffer, Texture, Bind, Drop};
 use crate::gl_wrap::{UniformError};
 
 // struct containing all info for single gl draw operation
@@ -9,8 +9,8 @@ pub struct DrawPass {
     program_ind: usize,
     vao_ind: usize,
     texture_ind: Option<usize>,
-    matrix_inds: Vec<usize>,
-    vector_inds: Vec<usize>,
+    matrix_inds: Vec<[usize; 2]>,
+    vector_inds: Vec<[usize; 2]>,
     draw_start: i32,
     draw_end: i32
 }
@@ -21,8 +21,8 @@ impl DrawPass {
         program_ind: usize,
         vao_ind: usize,
         texture_ind: Option<usize>,
-        matrix_inds: Vec<usize>,
-        vector_inds: Vec<usize>,
+        matrix_inds: Vec<[usize; 2]>,
+        vector_inds: Vec<[usize; 2]>,
         draw_start: i32,
         draw_end: i32
     ) -> Self {
@@ -43,15 +43,15 @@ impl DrawPass {
         programs: &Vec<Program>,
         vaos: &Vec<VertexArray>,
         textures: &Vec<Texture>,
-        matrices: &Vec<UniformMatrix>,
-        vectors: &Vec<UniformVector>
+        matrices: &Vec<UniformMat>,
+        vectors: &Vec<UniformVec>
     ) -> Result<(), UniformError> {
         let program = &programs[self.program_ind];
         program.bind();
         vaos[self.vao_ind].bind();
         if let Some(ind) = self.texture_ind { textures[ind].bind(); }
-        for &i in &self.matrix_inds { matrices[i].apply(program.id)?; }
-        for &i in &self.vector_inds { vectors[i].apply(program.id)?; }
+        for &m in &self.matrix_inds { matrices[m[0]].set(m[1]); }
+        for &v in &self.vector_inds { vectors[v[0]].set(v[1]); }
         unsafe { gl::DrawArrays(self.draw_type, self.draw_start, self.draw_end) }
         Ok(())
     }
@@ -64,8 +64,8 @@ pub struct Scene {
     vaos: Vec<VertexArray>,
     buffers: Vec<Buffer>,
     textures: Vec<Texture>,
-    matrices: Vec<UniformMatrix>,
-    vectors: Vec<UniformVector>
+    matrices: Vec<UniformMat>,
+    vectors: Vec<UniformVec>
 }
 
 impl Scene {
@@ -75,8 +75,8 @@ impl Scene {
         vaos: Vec<VertexArray>,
         buffers: Vec<Buffer>,
         textures: Vec<Texture>,
-        matrices: Vec<UniformMatrix>,
-        vectors: Vec<UniformVector>
+        matrices: Vec<UniformMat>,
+        vectors: Vec<UniformVec>
     ) -> Self {
         Self { draws, programs, vaos, buffers, textures, matrices, vectors }
     }
@@ -87,8 +87,8 @@ impl Scene {
         let vaos = Vec::<VertexArray>::new();
         let buffers = Vec::<Buffer>::new();
         let textures = Vec::<Texture>::new();
-        let matrices = Vec::<UniformMatrix>::new();
-        let vectors = Vec::<UniformVector>::new();
+        let matrices = Vec::<UniformMat>::new();
+        let vectors = Vec::<UniformVec>::new();
         Self { draws, programs, vaos, buffers, textures, matrices, vectors }
     }
 

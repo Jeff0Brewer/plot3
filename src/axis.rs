@@ -1,7 +1,7 @@
 extern crate gl;
 extern crate glam;
 extern crate alloc;
-use crate::gl_wrap::{Program, Buffer, VertexArray, UniformMatrix, UniformVector};
+use crate::gl_wrap::{Program, Buffer, VertexArray, UniformVec, UniformMat};
 use crate::scene::{Scene, DrawPass};
 use crate::plot::Bounds;
 use crate::vertices::PosVert;
@@ -38,9 +38,8 @@ impl Axis {
             "./shaders/solid_vert.glsl",
             "./shaders/solid_frag.glsl"
         )?;
-        let mvp_matrix = UniformMatrix::new("mvp", mvp, vec![solid_program.id])?;
-        let border_color = UniformVector::new("color", self.border_color, vec![solid_program.id])?;
-        let tick_color = UniformVector::new("color", self.tick_color, vec![solid_program.id])?;
+        let u_mvp = UniformMat::new(&solid_program, "mvp", vec![mvp])?;
+        let u_color = UniformVec::new(&solid_program, "color", vec![self.border_color, self.tick_color])?;
 
         // setup vaos with data and attribs
         let pos_loc = solid_program.get_attrib_location("position")?;
@@ -56,12 +55,12 @@ impl Axis {
         let vaos = vec![line_vao, tri_vao];
         let buffers = vec![line_buffer, tri_buffer];
         let textures = vec![];
-        let matrices = vec![mvp_matrix];
-        let vectors = vec![border_color, tick_color];
+        let matrices = vec![u_mvp];
+        let vectors = vec![u_color];
         let draw_passes = vec![
-            DrawPass::new(gl::LINES, 0, 0, None, vec![0], vec![1], border_line_len as i32, (lines.len() - border_line_len) as i32),
-            DrawPass::new(gl::LINES, 0, 0, None, vec![0], vec![0], 0, border_line_len as i32),
-            DrawPass::new(gl::TRIANGLES, 0, 1, None, vec![0], vec![0], 0, tris.len() as i32)
+            DrawPass::new(gl::LINES, 0, 0, None, vec![[0, 0]], vec![[0, 1]], border_line_len as i32, (lines.len() - border_line_len) as i32),
+            DrawPass::new(gl::LINES, 0, 0, None, vec![[0, 0]], vec![[0, 0]], 0, border_line_len as i32),
+            DrawPass::new(gl::TRIANGLES, 0, 1, None, vec![[0, 0]], vec![[0, 0]], 0, tris.len() as i32)
         ];
         let scene = Scene::new(draw_passes, programs, vaos, buffers, textures, matrices, vectors);
         Ok(scene)
