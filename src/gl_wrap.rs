@@ -31,6 +31,8 @@ impl Window {
         unsafe {
             let ctx = ctx.make_current().unwrap();
             gl::load_with(|ptr| ctx.get_proc_address(ptr) as *const _);
+            gl::Enable(gl::BLEND);
+            gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
             Ok(Self { ctx, event_loop })
         }
     }
@@ -244,6 +246,7 @@ impl Bind for VertexArray {
     }
 }
 
+#[derive(Copy, Clone)]
 pub struct Texture {
     id: GLuint
 }
@@ -272,6 +275,11 @@ impl Texture {
         }
         Self { id }
     }
+
+    pub fn new_blank(width: i32, height: i32) -> Self {
+        let data: Vec<u8> = vec![0; (width*height*4) as usize];
+        Self::new(&data, width, height)
+    }
 }
 
 impl Drop for Texture {
@@ -288,7 +296,7 @@ impl Bind for Texture {
 
 pub struct TextureFramebuffer {
     id: GLuint,
-    pub tex_id: GLuint,
+    pub texture: Texture,
     pub width: i32,
     pub height: i32,
     window_width: i32,
@@ -296,36 +304,27 @@ pub struct TextureFramebuffer {
 }
 
 impl TextureFramebuffer {
-    pub fn new(width: i32, height: i32, window_width: i32, window_height: i32) -> Result<Self, FramebufferError> {
+    pub fn new(width: i32, height: i32, window_width: i32, window_height: i32)
+        -> Result<Self, FramebufferError> {
         let mut id: GLuint = 0;
-        let mut tex_id: GLuint = 0;
+        let texture = Texture::new_blank(width, height);
         unsafe {
+            gl::BindTexture(gl::TEXTURE_2D, 0); // unbind fb texture
             gl::GenFramebuffers(1, &mut id);
             gl::BindFramebuffer(gl::FRAMEBUFFER, id);
-            gl::GenTextures(1, &mut tex_id);
-            gl::BindTexture(gl::TEXTURE_2D, tex_id);
-            // create empty texture
-            gl::TexImage2D(
+            gl::FramebufferTexture2D(
+                gl::FRAMEBUFFER,
+                gl::COLOR_ATTACHMENT0,
                 gl::TEXTURE_2D,
-                0,
-                gl::RGB as i32,
-                width,
-                height,
-                0,
-                gl::RGB,
-                gl::UNSIGNED_BYTE,
-                &[] as *const std::ffi::c_void
+                texture.id,
+                0
             );
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
-            gl::BindTexture(gl::TEXTURE_2D, 0); // unbind texture
-            gl::FramebufferTexture2D(gl::FRAMEBUFFER, gl::COLOR_ATTACHMENT0, gl::TEXTURE_2D, tex_id, 0);
             if gl::CheckFramebufferStatus(gl::FRAMEBUFFER) != gl::FRAMEBUFFER_COMPLETE {
                 return Err(FramebufferError::CreationError);
             }
-            gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
+            gl::BindFramebuffer(gl::FRAMEBUFFER, 0); // bind default fb
         }
-        Ok(Self { id, tex_id, width, height, window_width, window_height })
+        Ok(Self { id, texture, width, height, window_width, window_height })
     }
 
     pub fn bind_default(&self) {
@@ -338,10 +337,7 @@ impl TextureFramebuffer {
 
 impl Drop for TextureFramebuffer {
     fn drop(&self) {
-        unsafe {
-            gl::DeleteFramebuffers(1, [self.id].as_ptr());
-            gl::DeleteTextures(1, [self.tex_id].as_ptr());
-        }
+        unsafe { gl::DeleteFramebuffers(1, [self.id].as_ptr()); }
     }
 }
 

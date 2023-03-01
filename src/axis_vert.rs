@@ -1,4 +1,5 @@
-use crate::axis::{BorderStyle, TickStyle, Bounds};
+use crate::plot::Bounds;
+use crate::axis::{BorderStyle, TickStyle};
 use crate::vertices::{PosVert, pos_vert};
 
 pub fn get_axis_border(style: &BorderStyle, bounds: &Bounds) -> (Vec<PosVert>, Vec<PosVert>) {
