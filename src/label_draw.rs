@@ -1,6 +1,6 @@
 extern crate gl;
 extern crate glam;
-use crate::gl_wrap::{Program, VertexArray, Buffer, Texture, UniformMatrix, UniformVector, Drop};
+use crate::gl_wrap::{Program, VertexArray, Buffer, Texture, UniformMat, UniformVec, Drop};
 use crate::font_map::{FontMap, VERT_PER_CHAR};
 use crate::vertices::{BitmapVert, TextVert, bmp_to_text_vert};
 use crate::scene::{Scene, DrawPass};
@@ -120,21 +120,15 @@ impl LabelDrawer {
         vao.set_attribute::<TextVert>(pos_loc, 3, 0);
         vao.set_attribute::<TextVert>(offset_loc, 2, 3);
         vao.set_attribute::<TextVert>(tcoord_loc, 2, 5);
-        let mvp_matrix = UniformMatrix::new("mvp", mvp, vec![program.id])?;
-        let x_align_vec = UniformVector::new(
+        let u_mvp = UniformMat::new(&program, "mvp", vec![mvp])?;
+        let u_alignment = UniformVec::new(
+            &program,
             "alignment",
-            [1.0, 0.0, 0.0, 1.0],
-            vec![program.id]
-        )?;
-        let y_align_vec = UniformVector::new(
-            "alignment",
-            [0.0, -1.0, 0.0, 1.0],
-            vec![program.id]
-        )?;
-        let z_align_vec = UniformVector::new(
-            "alignment",
-            [0.0, 0.0, 1.0, 1.0],
-            vec![program.id]
+            vec![
+                [1.0, 0.0, 0.0, 1.0],
+                [0.0, -1.0, 0.0, 1.0],
+                [0.0, 0.0, 1.0, 1.0],
+            ]
         )?;
 
         // create scene
@@ -142,12 +136,12 @@ impl LabelDrawer {
         let vaos = vec![vao];
         let buffers = vec![buffer];
         let textures = vec![self.font_texture];
-        let matrices = vec![mvp_matrix];
-        let vectors = vec![x_align_vec, y_align_vec, z_align_vec];
+        let matrices = vec![u_mvp];
+        let vectors = vec![u_alignment];
         let draw_passes = vec![
-            DrawPass::new(gl::TRIANGLES, 0, 0, Some(0), vec![0], vec![0], 0, x_len),
-            DrawPass::new(gl::TRIANGLES, 0, 0, Some(0), vec![0], vec![1], x_len, y_len - x_len),
-            DrawPass::new(gl::TRIANGLES, 0, 0, Some(0), vec![0], vec![2], y_len, z_len - y_len)
+            DrawPass::new(gl::TRIANGLES, 0, 0, Some(0), vec![[0, 0]], vec![[0, 0]], 0, x_len),
+            DrawPass::new(gl::TRIANGLES, 0, 0, Some(0), vec![[0, 0]], vec![[0, 1]], x_len, y_len - x_len),
+            DrawPass::new(gl::TRIANGLES, 0, 0, Some(0), vec![[0, 0]], vec![[0, 2]], y_len, z_len - y_len)
         ];
         Ok(Scene::new(draw_passes, programs, vaos, buffers, textures, matrices, vectors))
     }
