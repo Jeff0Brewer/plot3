@@ -16,7 +16,7 @@ vec2 rotate2d(vec2 vec, float angle) {
 
 void main() {
     vec4 pos = mvp * position;
-    vec4 align_pos = mvp * alignment;
+    vec4 align_pos = mvp * vec4(position.xyz + alignment.xyz, 1.0);
 
     // calculate text orientation from diff between position and alignment vecs
     vec3 p0 = align_pos.xyz/align_pos.w;

@@ -34,7 +34,6 @@ impl LabelDrawer {
         let font_texture = texture;
         let font_verts = vertices;
         let font_inds = indices;
-        let label = "".to_string();
         let labels = AxisLabels::new();
         let params = LabelParams::new();
         Ok(Self { fontmap, font_texture, font_verts, font_inds, labels, params })
@@ -67,7 +66,7 @@ impl LabelDrawer {
         Ok(())
     }
 
-    fn get_vert_data(&self, label: &str, position: [f32; 3])
+    fn get_label_verts(&self, label: &str, position: [f32; 3])
     -> Result<Vec<TextVert>, LabelError> {
         let mut vertices = Vec::<TextVert>::new();
         let mut offset: f32 = 0.0;
@@ -104,17 +103,17 @@ impl LabelDrawer {
 
     pub fn get_scene(&self, mvp: [f32; 16], bounds: &Bounds) -> Result<Scene, LabelError> {
         let mut vertices = Vec::<TextVert>::new();
-        vertices.append(&mut self.get_vert_data(
+        vertices.append(&mut self.get_label_verts(
             &self.labels.x,
             [bounds.x * 0.5, 0.0, bounds.z + LABEL_MARGIN]
         )?);
         let x_len = vertices.len() as i32;
-        vertices.append(&mut self.get_vert_data(
+        vertices.append(&mut self.get_label_verts(
             &self.labels.y,
             [bounds.x + LABEL_MARGIN, bounds.y * 0.5, 0.0]
         )?);
         let y_len = vertices.len() as i32;
-        vertices.append(&mut self.get_vert_data(
+        vertices.append(&mut self.get_label_verts(
             &self.labels.z,
             [bounds.x + LABEL_MARGIN, 0.0, bounds.z * 0.5]
         )?);
@@ -136,17 +135,17 @@ impl LabelDrawer {
         let mvp_matrix = UniformMatrix::new("mvp", mvp, vec![program.id])?;
         let x_align_vec = UniformVector::new(
             "alignment",
-            [bounds.x, 0.0, bounds.z + LABEL_MARGIN, 1.0],
+            [1.0, 0.0, 0.0, 1.0],
             vec![program.id]
         )?;
         let y_align_vec = UniformVector::new(
             "alignment",
-            [bounds.x + LABEL_MARGIN, 0.0, 0.0, 1.0],
+            [0.0, -1.0, 0.0, 1.0],
             vec![program.id]
         )?;
         let z_align_vec = UniformVector::new(
             "alignment",
-            [bounds.x + LABEL_MARGIN, 0.0, bounds.z, 1.0],
+            [0.0, 0.0, 1.0, 1.0],
             vec![program.id]
         )?;
 
