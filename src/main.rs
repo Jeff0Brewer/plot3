@@ -16,6 +16,6 @@ fn main() {
     plot.axis.set_tick_style(TickStyle::Grid);
     plot.set_bounds(1.0, 0.5, 0.7);
     plot.labels.set_font_face("./resources/Ubuntu-Regular.ttf").unwrap();
-    plot.labels.set_label("Testing 19AZ");
+    plot.labels.set_labels("X axis", "Y axis", "Z axis");
     plot.display().unwrap();
 }
