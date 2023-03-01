@@ -16,15 +16,15 @@ pub struct LabelDrawer {
     params: LabelParams
 }
 
-struct LabelParams {
-    pub kearning: f32,
-    pub font_size: f32
-}
-
 struct AxisLabels {
     pub x: String,
     pub y: String,
     pub z: String
+}
+
+struct LabelParams {
+    pub kearning: f32,
+    pub font_size: f32
 }
 
 impl LabelDrawer {
@@ -37,18 +37,6 @@ impl LabelDrawer {
         let labels = AxisLabels::new();
         let params = LabelParams::new();
         Ok(Self { fontmap, font_texture, font_verts, font_inds, labels, params })
-    }
-
-    pub fn set_x_label(&mut self, label: &str) {
-        self.labels.x = label.to_string();
-    }
-
-    pub fn set_y_label(&mut self, label: &str) {
-        self.labels.y = label.to_string();
-    }
-
-    pub fn set_z_label(&mut self, label: &str) {
-        self.labels.z = label.to_string();
     }
 
     pub fn set_labels(&mut self, x: &str, y: &str, z: &str) {
@@ -165,21 +153,21 @@ impl LabelDrawer {
     }
 }
 
-impl LabelParams {
-    pub fn new() -> Self {
-        Self {
-            kearning: 0.0,
-            font_size: 20.0
-        }
-    }
-}
-
 impl AxisLabels {
     pub fn new() -> Self {
         Self {
             x: "".to_string(),
             y: "".to_string(),
             z: "".to_string()
+        }
+    }
+}
+
+impl LabelParams {
+    pub fn new() -> Self {
+        Self {
+            kearning: 0.0,
+            font_size: 20.0
         }
     }
 }
