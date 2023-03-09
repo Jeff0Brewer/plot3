@@ -6,35 +6,26 @@ use gl::types::GLenum;
 // struct containing all info for single gl draw operation
 pub struct DrawPass {
     draw_type: GLenum,
-    program_ind: usize,
-    vao_ind: usize,
-    texture_ind: Option<usize>,
-    matrix_inds: Vec<[usize; 2]>,
-    vector_inds: Vec<[usize; 2]>,
-    draw_start: i32,
-    draw_end: i32,
+    start: i32,
+    count: i32,
+    inds: DrawInds,
+}
+
+pub struct DrawInds {
+    pub program: usize,
+    pub vao: usize,
+    pub texture: Option<usize>,
+    pub matrix: Vec<[usize; 2]>,
+    pub vector: Vec<[usize; 2]>,
 }
 
 impl DrawPass {
-    pub fn new(
-        draw_type: GLenum,
-        program_ind: usize,
-        vao_ind: usize,
-        texture_ind: Option<usize>,
-        matrix_inds: Vec<[usize; 2]>,
-        vector_inds: Vec<[usize; 2]>,
-        draw_start: i32,
-        draw_end: i32,
-    ) -> Self {
+    pub fn new(draw_type: GLenum, start: i32, count: i32, inds: DrawInds) -> Self {
         Self {
             draw_type,
-            program_ind,
-            vao_ind,
-            texture_ind,
-            matrix_inds,
-            vector_inds,
-            draw_start,
-            draw_end,
+            start,
+            count,
+            inds,
         }
     }
 
@@ -46,19 +37,21 @@ impl DrawPass {
         matrices: &[UniformMat],
         vectors: &[UniformVec],
     ) -> Result<(), UniformError> {
-        let program = &programs[self.program_ind];
+        let program = &programs[self.inds.program];
         program.bind();
-        vaos[self.vao_ind].bind();
-        if let Some(ind) = self.texture_ind {
+        vaos[self.inds.vao].bind();
+        if let Some(ind) = self.inds.texture {
             textures[ind].bind();
         }
-        for &m in &self.matrix_inds {
+        for &m in &self.inds.matrix {
             matrices[m[0]].set(m[1]);
         }
-        for &v in &self.vector_inds {
+        for &v in &self.inds.vector {
             vectors[v[0]].set(v[1]);
         }
-        unsafe { gl::DrawArrays(self.draw_type, self.draw_start, self.draw_end) }
+        unsafe {
+            gl::DrawArrays(self.draw_type, self.start, self.count);
+        }
         Ok(())
     }
 }

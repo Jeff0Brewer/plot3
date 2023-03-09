@@ -4,7 +4,7 @@ extern crate glam;
 use crate::axis_vert::*;
 use crate::gl_wrap::{Buffer, Program, UniformMat, UniformVec, VertexArray};
 use crate::plot::Bounds;
-use crate::scene::{DrawPass, Scene};
+use crate::scene::{DrawInds, DrawPass, Scene};
 use crate::vertices::PosVert;
 
 pub struct Axis {
@@ -61,23 +61,27 @@ impl Axis {
         let draw_passes = vec![
             DrawPass::new(
                 gl::LINES,
-                0,
-                0,
-                None,
-                vec![[0, 0]],
-                vec![[0, 1]],
                 border_len,
                 ticks_len,
+                DrawInds {
+                    program: 0,
+                    vao: 0,
+                    texture: None,
+                    matrix: vec![[0, 0]],
+                    vector: vec![[0, 1]],
+                },
             ),
             DrawPass::new(
                 gl::LINES,
                 0,
-                0,
-                None,
-                vec![[0, 0]],
-                vec![[0, 0]],
-                0,
                 border_len,
+                DrawInds {
+                    program: 0,
+                    vao: 0,
+                    texture: None,
+                    matrix: vec![[0, 0]],
+                    vector: vec![[0, 0]],
+                },
             ),
         ];
         let scene = Scene::new(

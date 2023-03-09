@@ -3,7 +3,7 @@ extern crate glam;
 use crate::font_map::{FontMap, VERT_PER_CHAR};
 use crate::gl_wrap::{Buffer, Drop, Program, Texture, UniformMat, UniformVec, VertexArray};
 use crate::plot::Bounds;
-use crate::scene::{DrawPass, Scene};
+use crate::scene::{DrawInds, DrawPass, Scene};
 use crate::vertices::{bmp_to_text_vert, BitmapVert, TextVert};
 use std::collections::HashMap;
 
@@ -149,32 +149,38 @@ impl LabelDrawer {
             DrawPass::new(
                 gl::TRIANGLES,
                 0,
-                0,
-                Some(0),
-                vec![[0, 0]],
-                vec![[0, 0]],
-                0,
                 x_len,
+                DrawInds {
+                    program: 0,
+                    vao: 0,
+                    texture: Some(0),
+                    matrix: vec![[0, 0]],
+                    vector: vec![[0, 0]],
+                },
             ),
             DrawPass::new(
                 gl::TRIANGLES,
-                0,
-                0,
-                Some(0),
-                vec![[0, 0]],
-                vec![[0, 1]],
                 x_len,
                 y_len - x_len,
+                DrawInds {
+                    program: 0,
+                    vao: 0,
+                    texture: Some(0),
+                    matrix: vec![[0, 0]],
+                    vector: vec![[0, 1]],
+                },
             ),
             DrawPass::new(
                 gl::TRIANGLES,
-                0,
-                0,
-                Some(0),
-                vec![[0, 0]],
-                vec![[0, 2]],
                 y_len,
                 z_len - y_len,
+                DrawInds {
+                    program: 0,
+                    vao: 0,
+                    texture: Some(0),
+                    matrix: vec![[0, 0]],
+                    vector: vec![[0, 2]],
+                },
             ),
         ];
         Ok(Scene::new(
