@@ -1,17 +1,14 @@
 extern crate gl;
 extern crate glam;
-use crate::font_map::{FontMap, VERT_PER_CHAR};
-use crate::gl_wrap::{Buffer, Drop, Program, Texture, UniformMat, UniformVec, VertexArray};
+use crate::font_map::{FontMap, FontMapper, VERT_PER_CHAR};
+use crate::gl_wrap::{Buffer, Drop, Program, UniformMat, UniformVec, VertexArray};
 use crate::plot::Bounds;
 use crate::scene::{DrawInds, DrawPass, Scene};
-use crate::vertices::{bmp_to_text_vert, BitmapVert, TextVert};
-use std::collections::HashMap;
+use crate::vertices::{bmp_to_text_vert, TextVert};
 
 pub struct LabelDrawer {
-    fontmap: FontMap,
-    font_verts: Vec<BitmapVert>,
-    font_inds: HashMap<char, usize>,
-    font_texture: Texture,
+    font_mapper: FontMapper,
+    font_map: FontMap,
     labels: AxisLabels,
     params: LabelParams,
 }
@@ -29,18 +26,13 @@ struct LabelParams {
 
 impl LabelDrawer {
     pub fn new(window_width: i32, window_height: i32) -> Result<Self, LabelError> {
-        let fontmap = FontMap::new(window_width, window_height)?;
-        let (texture, vertices, indices) = fontmap.gen_font_map(DEFAULT_FONT)?;
-        let font_texture = texture;
-        let font_verts = vertices;
-        let font_inds = indices;
+        let font_mapper = FontMapper::new(window_width, window_height)?;
+        let font_map = font_mapper.gen_font_map(DEFAULT_FONT)?;
         let labels = AxisLabels::new();
         let params = LabelParams::new();
         Ok(Self {
-            fontmap,
-            font_texture,
-            font_verts,
-            font_inds,
+            font_mapper,
+            font_map,
             labels,
             params,
         })
@@ -53,11 +45,8 @@ impl LabelDrawer {
     }
 
     pub fn set_font_face(&mut self, font_file: &str) -> Result<(), LabelError> {
-        self.font_texture.drop(); // free old font texture
-        let (texture, vertices, indices) = self.fontmap.gen_font_map(font_file)?;
-        self.font_texture = texture;
-        self.font_verts = vertices;
-        self.font_inds = indices;
+        self.font_map.drop(); // free old font texture
+        self.font_map = self.font_mapper.gen_font_map(font_file)?;
         Ok(())
     }
 
@@ -75,15 +64,15 @@ impl LabelDrawer {
                 continue;
             }
             // get start index of vertex data if char exists in font texture
-            let vert_ind = match self.font_inds.get(&c) {
+            let vert_ind = match self.font_map.inds.get(&c) {
                 Some(&index) => index,
                 None => return Err(LabelError::Character(c)),
             };
             // character width / 2 from first vertex x coordinate
-            let char_spacing = self.font_verts[vert_ind].position[0] + self.params.kearning;
+            let char_spacing = self.font_map.verts[vert_ind].position[0] + self.params.kearning;
             offset += char_spacing;
             for i in 0..VERT_PER_CHAR {
-                let mut vert = bmp_to_text_vert!(self.font_verts[i + vert_ind], position);
+                let mut vert = bmp_to_text_vert!(self.font_map.verts[i + vert_ind], position);
                 vert.offset[0] += offset; // layout text on x axis
                 vertices.push(vert);
             }
@@ -142,7 +131,7 @@ impl LabelDrawer {
         let programs = vec![program];
         let vaos = vec![vao];
         let buffers = vec![buffer];
-        let textures = vec![self.font_texture];
+        let textures = vec![self.font_map.texture];
         let matrices = vec![u_mvp];
         let vectors = vec![u_alignment];
         let draw_passes = vec![
@@ -218,14 +207,14 @@ static DEFAULT_FONT: &str = "./resources/Ubuntu-Regular.ttf";
 static LABEL_MARGIN: f32 = 0.1;
 
 extern crate thiserror;
-use crate::font_map::FontMapError;
+use crate::font_map::FontMapperError;
 use crate::gl_wrap::{ProgramError, UniformError};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum LabelError {
     #[error("{0}")]
-    FontMap(#[from] FontMapError),
+    FontMapper(#[from] FontMapperError),
     #[error("{0}")]
     Program(#[from] ProgramError),
     #[error("{0}")]
