@@ -1,17 +1,17 @@
+extern crate alloc;
 extern crate gl;
 extern crate glam;
-extern crate alloc;
-use crate::gl_wrap::{Program, Buffer, VertexArray, UniformVec, UniformMat};
-use crate::scene::{Scene, DrawPass};
-use crate::plot::Bounds;
-use crate::vertices::PosVert;
 use crate::axis_vert::*;
+use crate::gl_wrap::{Buffer, Program, UniformMat, UniformVec, VertexArray};
+use crate::plot::Bounds;
+use crate::scene::{DrawInds, DrawPass, Scene};
+use crate::vertices::PosVert;
 
 pub struct Axis {
     border_color: [f32; 4],
     tick_style: TickStyle,
     tick_color: [f32; 4],
-    tick_count: i32
+    tick_count: i32,
 }
 
 impl Axis {
@@ -20,7 +20,12 @@ impl Axis {
         let tick_style = TickStyle::Blank;
         let tick_color: [f32; 4] = [0.5, 0.5, 0.5, 1.0];
         let tick_count: i32 = 10;
-        Self { border_color, tick_style, tick_color, tick_count }
+        Self {
+            border_color,
+            tick_style,
+            tick_color,
+            tick_count,
+        }
     }
 
     pub fn get_scene(&self, mvp: [f32; 16], bounds: &Bounds) -> Result<Scene, AxisError> {
@@ -31,12 +36,14 @@ impl Axis {
         axis.append(&mut ticks);
 
         // init gl resources
-        let solid_program = Program::new_from_files(
-            "./shaders/solid_vert.glsl",
-            "./shaders/solid_frag.glsl"
-        )?;
+        let solid_program =
+            Program::new_from_files("./shaders/solid_vert.glsl", "./shaders/solid_frag.glsl")?;
         let u_mvp = UniformMat::new(&solid_program, "mvp", vec![mvp])?;
-        let u_color = UniformVec::new(&solid_program, "color", vec![self.border_color, self.tick_color])?;
+        let u_color = UniformVec::new(
+            &solid_program,
+            "color",
+            vec![self.border_color, self.tick_color],
+        )?;
 
         // setup vaos with data and attribs
         let pos_loc = solid_program.get_attrib_location("position")?;
@@ -52,10 +59,40 @@ impl Axis {
         let matrices = vec![u_mvp];
         let vectors = vec![u_color];
         let draw_passes = vec![
-            DrawPass::new(gl::LINES, 0, 0, None, vec![[0, 0]], vec![[0, 1]], border_len, ticks_len),
-            DrawPass::new(gl::LINES, 0, 0, None, vec![[0, 0]], vec![[0, 0]], 0, border_len)
+            DrawPass::new(
+                gl::LINES,
+                border_len,
+                ticks_len,
+                DrawInds {
+                    program: 0,
+                    vao: 0,
+                    texture: None,
+                    matrix: vec![[0, 0]],
+                    vector: vec![[0, 1]],
+                },
+            ),
+            DrawPass::new(
+                gl::LINES,
+                0,
+                border_len,
+                DrawInds {
+                    program: 0,
+                    vao: 0,
+                    texture: None,
+                    matrix: vec![[0, 0]],
+                    vector: vec![[0, 0]],
+                },
+            ),
         ];
-        let scene = Scene::new(draw_passes, programs, vaos, buffers, textures, matrices, vectors);
+        let scene = Scene::new(
+            draw_passes,
+            programs,
+            vaos,
+            buffers,
+            textures,
+            matrices,
+            vectors,
+        );
         Ok(scene)
     }
 
@@ -76,21 +113,21 @@ impl Axis {
 pub enum TickStyle {
     Tick,
     Grid,
-    Blank
+    Blank,
 }
 
 extern crate thiserror;
-use thiserror::Error;
-use crate::gl_wrap::{ShaderError, ProgramError, UniformError};
+use crate::gl_wrap::{ProgramError, ShaderError, UniformError};
 use std::ffi::NulError;
+use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum AxisError {
     #[error("{0}")]
-    ShaderError(#[from] ShaderError),
+    Shader(#[from] ShaderError),
     #[error("{0}")]
-    ProgramError(#[from] ProgramError),
+    Program(#[from] ProgramError),
     #[error("{0}")]
-    UniformError(#[from] UniformError),
+    Uniform(#[from] UniformError),
     #[error("{0}")]
-    NulError(#[from] NulError)
+    Nul(#[from] NulError),
 }

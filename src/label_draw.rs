@@ -1,42 +1,41 @@
 extern crate gl;
 extern crate glam;
-use crate::gl_wrap::{Program, VertexArray, Buffer, Texture, UniformMat, UniformVec, Drop};
-use crate::font_map::{FontMap, VERT_PER_CHAR};
-use crate::vertices::{BitmapVert, TextVert, bmp_to_text_vert};
-use crate::scene::{Scene, DrawPass};
-use crate::plot::{Bounds};
-use std::collections::HashMap;
+use crate::font_map::{FontMap, FontMapper, VERT_PER_CHAR};
+use crate::gl_wrap::{Buffer, Drop, Program, UniformMat, UniformVec, VertexArray};
+use crate::plot::Bounds;
+use crate::scene::{DrawInds, DrawPass, Scene};
+use crate::vertices::{bmp_to_text_vert, TextVert};
 
 pub struct LabelDrawer {
-    fontmap: FontMap,
-    font_verts: Vec<BitmapVert>,
-    font_inds: HashMap<char, usize>,
-    font_texture: Texture,
+    font_mapper: FontMapper,
+    font_map: FontMap,
     labels: AxisLabels,
-    params: LabelParams
+    params: LabelParams,
 }
 
 struct AxisLabels {
     pub x: String,
     pub y: String,
-    pub z: String
+    pub z: String,
 }
 
 struct LabelParams {
     pub kearning: f32,
-    pub font_size: f32
+    pub font_size: f32,
 }
 
 impl LabelDrawer {
     pub fn new(window_width: i32, window_height: i32) -> Result<Self, LabelError> {
-        let fontmap = FontMap::new(window_width, window_height)?;
-        let (texture, vertices, indices) = fontmap.gen_font_map(DEFAULT_FONT)?;
-        let font_texture = texture;
-        let font_verts = vertices;
-        let font_inds = indices;
+        let font_mapper = FontMapper::new(window_width, window_height)?;
+        let font_map = font_mapper.gen_font_map(DEFAULT_FONT)?;
         let labels = AxisLabels::new();
         let params = LabelParams::new();
-        Ok(Self { fontmap, font_texture, font_verts, font_inds, labels, params })
+        Ok(Self {
+            font_mapper,
+            font_map,
+            labels,
+            params,
+        })
     }
 
     pub fn set_labels(&mut self, x: &str, y: &str, z: &str) {
@@ -46,16 +45,16 @@ impl LabelDrawer {
     }
 
     pub fn set_font_face(&mut self, font_file: &str) -> Result<(), LabelError> {
-        self.font_texture.drop(); // free old font texture
-        let (texture, vertices, indices) = self.fontmap.gen_font_map(font_file)?;
-        self.font_texture = texture;
-        self.font_verts = vertices;
-        self.font_inds = indices;
+        self.font_map.drop(); // free old font texture
+        self.font_map = self.font_mapper.gen_font_map(font_file)?;
         Ok(())
     }
 
-    fn get_label_verts(&self, label: &str, position: [f32; 3])
-    -> Result<Vec<TextVert>, LabelError> {
+    fn get_label_verts(
+        &self,
+        label: &str,
+        position: [f32; 3],
+    ) -> Result<Vec<TextVert>, LabelError> {
         let mut vertices = Vec::<TextVert>::new();
         let mut offset: f32 = 0.0;
         for c in label.chars() {
@@ -65,16 +64,15 @@ impl LabelDrawer {
                 continue;
             }
             // get start index of vertex data if char exists in font texture
-            let vert_ind: usize;
-            match self.font_inds.get(&c) {
-                Some(&index) => { vert_ind = index; },
-                None => { return Err(LabelError::CharacterError(c)); }
-            }
+            let vert_ind = match self.font_map.inds.get(&c) {
+                Some(&index) => index,
+                None => return Err(LabelError::Character(c)),
+            };
             // character width / 2 from first vertex x coordinate
-            let char_spacing = self.font_verts[vert_ind].position[0] + self.params.kearning;
+            let char_spacing = self.font_map.verts[vert_ind].position[0] + self.params.kearning;
             offset += char_spacing;
             for i in 0..VERT_PER_CHAR {
-                let mut vert = bmp_to_text_vert!(self.font_verts[i + vert_ind], position);
+                let mut vert = bmp_to_text_vert!(self.font_map.verts[i + vert_ind], position);
                 vert.offset[0] += offset; // layout text on x axis
                 vertices.push(vert);
             }
@@ -93,25 +91,23 @@ impl LabelDrawer {
         let mut vertices = Vec::<TextVert>::new();
         vertices.append(&mut self.get_label_verts(
             &self.labels.x,
-            [bounds.x * 0.5, 0.0, bounds.z + LABEL_MARGIN]
+            [bounds.x * 0.5, 0.0, bounds.z + LABEL_MARGIN],
         )?);
         let x_len = vertices.len() as i32;
         vertices.append(&mut self.get_label_verts(
             &self.labels.y,
-            [bounds.x + LABEL_MARGIN, bounds.y * 0.5, 0.0]
+            [bounds.x + LABEL_MARGIN, bounds.y * 0.5, 0.0],
         )?);
         let y_len = vertices.len() as i32;
         vertices.append(&mut self.get_label_verts(
             &self.labels.z,
-            [bounds.x + LABEL_MARGIN, 0.0, bounds.z * 0.5]
+            [bounds.x + LABEL_MARGIN, 0.0, bounds.z * 0.5],
         )?);
         let z_len = vertices.len() as i32;
 
         // create gl resources
-        let program = Program::new_from_files(
-            "./shaders/text_align_vert.glsl",
-            "./shaders/text_frag.glsl"
-        )?;
+        let program =
+            Program::new_from_files("./shaders/text_align_vert.glsl", "./shaders/text_frag.glsl")?;
         let vao = VertexArray::new();
         let buffer = Buffer::new_from(&vertices, gl::STATIC_DRAW);
         let pos_loc = program.get_attrib_location("position")?;
@@ -128,22 +124,63 @@ impl LabelDrawer {
                 [1.0, 0.0, 0.0, 1.0],
                 [0.0, -1.0, 0.0, 1.0],
                 [0.0, 0.0, 1.0, 1.0],
-            ]
+            ],
         )?;
 
         // create scene
         let programs = vec![program];
         let vaos = vec![vao];
         let buffers = vec![buffer];
-        let textures = vec![self.font_texture];
+        let textures = vec![self.font_map.texture];
         let matrices = vec![u_mvp];
         let vectors = vec![u_alignment];
         let draw_passes = vec![
-            DrawPass::new(gl::TRIANGLES, 0, 0, Some(0), vec![[0, 0]], vec![[0, 0]], 0, x_len),
-            DrawPass::new(gl::TRIANGLES, 0, 0, Some(0), vec![[0, 0]], vec![[0, 1]], x_len, y_len - x_len),
-            DrawPass::new(gl::TRIANGLES, 0, 0, Some(0), vec![[0, 0]], vec![[0, 2]], y_len, z_len - y_len)
+            DrawPass::new(
+                gl::TRIANGLES,
+                0,
+                x_len,
+                DrawInds {
+                    program: 0,
+                    vao: 0,
+                    texture: Some(0),
+                    matrix: vec![[0, 0]],
+                    vector: vec![[0, 0]],
+                },
+            ),
+            DrawPass::new(
+                gl::TRIANGLES,
+                x_len,
+                y_len - x_len,
+                DrawInds {
+                    program: 0,
+                    vao: 0,
+                    texture: Some(0),
+                    matrix: vec![[0, 0]],
+                    vector: vec![[0, 1]],
+                },
+            ),
+            DrawPass::new(
+                gl::TRIANGLES,
+                y_len,
+                z_len - y_len,
+                DrawInds {
+                    program: 0,
+                    vao: 0,
+                    texture: Some(0),
+                    matrix: vec![[0, 0]],
+                    vector: vec![[0, 2]],
+                },
+            ),
         ];
-        Ok(Scene::new(draw_passes, programs, vaos, buffers, textures, matrices, vectors))
+        Ok(Scene::new(
+            draw_passes,
+            programs,
+            vaos,
+            buffers,
+            textures,
+            matrices,
+            vectors,
+        ))
     }
 }
 
@@ -152,7 +189,7 @@ impl AxisLabels {
         Self {
             x: "".to_string(),
             y: "".to_string(),
-            z: "".to_string()
+            z: "".to_string(),
         }
     }
 }
@@ -161,7 +198,7 @@ impl LabelParams {
     pub fn new() -> Self {
         Self {
             kearning: 0.0,
-            font_size: 20.0
+            font_size: 20.0,
         }
     }
 }
@@ -170,18 +207,18 @@ static DEFAULT_FONT: &str = "./resources/Ubuntu-Regular.ttf";
 static LABEL_MARGIN: f32 = 0.1;
 
 extern crate thiserror;
-use thiserror::Error;
-use crate::font_map::FontMapError;
+use crate::font_map::FontMapperError;
 use crate::gl_wrap::{ProgramError, UniformError};
+use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum LabelError {
     #[error("{0}")]
-    FontMapError(#[from] FontMapError),
+    FontMapper(#[from] FontMapperError),
     #[error("{0}")]
-    ProgramError(#[from] ProgramError),
+    Program(#[from] ProgramError),
     #[error("{0}")]
-    UniformError(#[from] UniformError),
+    Uniform(#[from] UniformError),
     #[error("Invalid character '{0}'")]
-    CharacterError(char)
+    Character(char),
 }

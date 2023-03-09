@@ -1,19 +1,19 @@
-extern crate glutin;
 extern crate gl;
-use glutin::{ContextWrapper, ContextBuilder, GlRequest, Api, CreationError, PossiblyCurrent};
-use glutin::event_loop::{EventLoop, ControlFlow};
-use glutin::event::{Event, WindowEvent};
-use glutin::window::WindowBuilder;
-use glutin::dpi::LogicalSize;
-use gl::types::{GLuint, GLint, GLenum, GLsizeiptr};
-use std::string::FromUtf8Error;
-use std::ffi::{CString, NulError};
-use std::{ptr, fs};
+extern crate glutin;
 use crate::scene::Scene;
+use gl::types::{GLenum, GLint, GLsizeiptr, GLuint};
+use glutin::dpi::LogicalSize;
+use glutin::event::{Event, WindowEvent};
+use glutin::event_loop::{ControlFlow, EventLoop};
+use glutin::window::WindowBuilder;
+use glutin::{Api, ContextBuilder, ContextWrapper, CreationError, GlRequest, PossiblyCurrent};
+use std::ffi::{CString, NulError};
+use std::string::FromUtf8Error;
+use std::{fs, ptr};
 
 pub struct Window {
     ctx: ContextWrapper<PossiblyCurrent, glutin::window::Window>,
-    event_loop: EventLoop<()>
+    event_loop: EventLoop<()>,
 }
 
 impl Window {
@@ -37,32 +37,38 @@ impl Window {
     }
 
     // begin draw loop with generic user defined scenes
-    pub fn run(self, scenes: Vec<Scene>) -> () {
+    pub fn run(self, scenes: Vec<Scene>) {
         self.ctx.swap_buffers().unwrap();
         self.event_loop.run(move |event, _, control_flow| {
             *control_flow = ControlFlow::Wait;
             match event {
-                Event::WindowEvent {event, ..} => match event {
+                Event::WindowEvent { event, .. } => match event {
                     WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
-                    _ => ()
+                    _ => (),
                 },
                 Event::LoopDestroyed => {
                     // free gl resources on loop end
-                    for scene in &scenes { scene.drop(); }
-                },
+                    for scene in &scenes {
+                        scene.drop();
+                    }
+                }
                 Event::RedrawRequested(_) => {
-                    unsafe { gl::Clear(gl::COLOR_BUFFER_BIT); }
-                    for scene in &scenes { scene.draw().unwrap(); }
+                    unsafe {
+                        gl::Clear(gl::COLOR_BUFFER_BIT);
+                    }
+                    for scene in &scenes {
+                        scene.draw().unwrap();
+                    }
                     self.ctx.swap_buffers().unwrap();
-                },
-                _ => ()
+                }
+                _ => (),
             }
         })
     }
 }
 
 pub struct Shader {
-    pub id: GLuint
+    pub id: GLuint,
 }
 
 impl Shader {
@@ -71,39 +77,52 @@ impl Shader {
         let source_code = CString::new(fs::read_to_string(source_file)?)?;
         let shader: Self;
         unsafe {
-            shader = Self { id: gl::CreateShader(shader_type) };
+            shader = Self {
+                id: gl::CreateShader(shader_type),
+            };
             gl::ShaderSource(shader.id, 1, &source_code.as_ptr(), ptr::null());
             gl::CompileShader(shader.id);
         }
 
         // check if shader compiled successfully
         let mut success: GLint = 0;
-        unsafe { gl::GetShaderiv(shader.id, gl::COMPILE_STATUS, &mut success); }
+        unsafe {
+            gl::GetShaderiv(shader.id, gl::COMPILE_STATUS, &mut success);
+        }
         if success == 1 {
             Ok(shader)
         } else {
             // get shader info log and throw error on compilation failure
             let mut log_size: GLint = 0;
-            unsafe { gl::GetShaderiv(shader.id, gl::INFO_LOG_LENGTH, &mut log_size); }
+            unsafe {
+                gl::GetShaderiv(shader.id, gl::INFO_LOG_LENGTH, &mut log_size);
+            }
             let mut error_log: Vec<u8> = Vec::with_capacity(log_size as usize);
             unsafe {
-                gl::GetShaderInfoLog(shader.id, log_size, &mut log_size, error_log.as_mut_ptr() as *mut _);
+                gl::GetShaderInfoLog(
+                    shader.id,
+                    log_size,
+                    &mut log_size,
+                    error_log.as_mut_ptr() as *mut _,
+                );
                 error_log.set_len(log_size as usize);
             }
             let log = String::from_utf8(error_log)?;
-            Err(ShaderError::CompilationError(log))
+            Err(ShaderError::Compilation(log))
         }
     }
 }
 
 impl Drop for Shader {
     fn drop(&self) {
-        unsafe { gl::DeleteShader(self.id); }
+        unsafe {
+            gl::DeleteShader(self.id);
+        }
     }
 }
 
 pub struct Program {
-    pub id: GLuint
+    pub id: GLuint,
 }
 
 impl Program {
@@ -111,7 +130,9 @@ impl Program {
         // link shaders into program
         let program: Self;
         unsafe {
-            program = Self { id: gl::CreateProgram() };
+            program = Self {
+                id: gl::CreateProgram(),
+            };
             gl::AttachShader(program.id, vertex_shader.id);
             gl::AttachShader(program.id, fragment_shader.id);
             gl::LinkProgram(program.id);
@@ -119,20 +140,29 @@ impl Program {
 
         // check if program linked successfully
         let mut success: GLint = 0;
-        unsafe { gl::GetProgramiv(program.id, gl::LINK_STATUS, &mut success); }
+        unsafe {
+            gl::GetProgramiv(program.id, gl::LINK_STATUS, &mut success);
+        }
         if success == 1 {
             Ok(program)
         } else {
             // get program info log and throw error on linking failure
             let mut log_size: GLint = 0;
-            unsafe { gl::GetProgramiv(program.id, gl::INFO_LOG_LENGTH, &mut log_size); }
+            unsafe {
+                gl::GetProgramiv(program.id, gl::INFO_LOG_LENGTH, &mut log_size);
+            }
             let mut error_log: Vec<u8> = Vec::with_capacity(log_size as usize);
             unsafe {
-                gl::GetProgramInfoLog(program.id, log_size, &mut log_size, error_log.as_mut_ptr() as *mut _);
+                gl::GetProgramInfoLog(
+                    program.id,
+                    log_size,
+                    &mut log_size,
+                    error_log.as_mut_ptr() as *mut _,
+                );
                 error_log.set_len(log_size as usize);
             }
             let log = String::from_utf8(error_log)?;
-            Err(ProgramError::LinkingError(log))
+            Err(ProgramError::Linking(log))
         }
     }
 
@@ -158,24 +188,30 @@ impl Program {
 
 impl Drop for Program {
     fn drop(&self) {
-        unsafe { gl::DeleteProgram(self.id); }
+        unsafe {
+            gl::DeleteProgram(self.id);
+        }
     }
 }
 
 impl Bind for Program {
     fn bind(&self) {
-        unsafe { gl::UseProgram(self.id); }
+        unsafe {
+            gl::UseProgram(self.id);
+        }
     }
 }
 
 pub struct Buffer {
-    pub id: GLuint
+    pub id: GLuint,
 }
 
 impl Buffer {
     pub fn new() -> Self {
         let mut id: GLuint = 0;
-        unsafe { gl::GenBuffers(1, &mut id); }
+        unsafe {
+            gl::GenBuffers(1, &mut id);
+        }
         Self { id }
     }
 
@@ -187,7 +223,7 @@ impl Buffer {
                 gl::ARRAY_BUFFER,
                 bytes.len() as GLsizeiptr,
                 bytes.as_ptr() as *const _,
-                draw_type
+                draw_type,
             );
         }
     }
@@ -201,24 +237,30 @@ impl Buffer {
 
 impl Drop for Buffer {
     fn drop(&self) {
-        unsafe { gl::DeleteBuffers(1, [self.id].as_ptr()); }
+        unsafe {
+            gl::DeleteBuffers(1, [self.id].as_ptr());
+        }
     }
 }
 
 impl Bind for Buffer {
     fn bind(&self) {
-        unsafe { gl::BindBuffer(gl::ARRAY_BUFFER, self.id); }
+        unsafe {
+            gl::BindBuffer(gl::ARRAY_BUFFER, self.id);
+        }
     }
 }
 
 pub struct VertexArray {
-    pub id: GLuint
+    pub id: GLuint,
 }
 
 impl VertexArray {
     pub fn new() -> Self {
         let mut id: GLuint = 0;
-        unsafe { gl::GenVertexArrays(1, &mut id); }
+        unsafe {
+            gl::GenVertexArrays(1, &mut id);
+        }
         Self { id }
     }
 
@@ -235,19 +277,23 @@ impl VertexArray {
 
 impl Drop for VertexArray {
     fn drop(&self) {
-        unsafe { gl::DeleteVertexArrays(1, [self.id].as_ptr()); }
+        unsafe {
+            gl::DeleteVertexArrays(1, [self.id].as_ptr());
+        }
     }
 }
 
 impl Bind for VertexArray {
     fn bind(&self) {
-        unsafe { gl::BindVertexArray(self.id); }
+        unsafe {
+            gl::BindVertexArray(self.id);
+        }
     }
 }
 
 #[derive(Copy, Clone)]
 pub struct Texture {
-    id: GLuint
+    id: GLuint,
 }
 
 impl Texture {
@@ -269,27 +315,31 @@ impl Texture {
                 0,
                 gl::RGBA,
                 gl::UNSIGNED_BYTE,
-                &data[0] as *const _ as *const std::ffi::c_void
+                &data[0] as *const _ as *const std::ffi::c_void,
             );
         }
         Self { id }
     }
 
     pub fn new_blank(width: i32, height: i32) -> Self {
-        let data: Vec<u8> = vec![0; (width*height*4) as usize];
+        let data: Vec<u8> = vec![0; (width * height * 4) as usize];
         Self::new(&data, width, height)
     }
 }
 
 impl Drop for Texture {
     fn drop(&self) {
-        unsafe { gl::DeleteTextures(1, [self.id].as_ptr()); }
+        unsafe {
+            gl::DeleteTextures(1, [self.id].as_ptr());
+        }
     }
 }
 
 impl Bind for Texture {
     fn bind(&self) {
-        unsafe { gl::BindTexture(gl::TEXTURE_2D, self.id); }
+        unsafe {
+            gl::BindTexture(gl::TEXTURE_2D, self.id);
+        }
     }
 }
 
@@ -299,12 +349,16 @@ pub struct TextureFramebuffer {
     pub width: i32,
     pub height: i32,
     window_width: i32,
-    window_height: i32
+    window_height: i32,
 }
 
 impl TextureFramebuffer {
-    pub fn new(width: i32, height: i32, window_width: i32, window_height: i32)
-        -> Result<Self, FramebufferError> {
+    pub fn new(
+        width: i32,
+        height: i32,
+        window_width: i32,
+        window_height: i32,
+    ) -> Result<Self, FramebufferError> {
         let mut id: GLuint = 0;
         let texture = Texture::new_blank(width, height);
         unsafe {
@@ -316,14 +370,21 @@ impl TextureFramebuffer {
                 gl::COLOR_ATTACHMENT0,
                 gl::TEXTURE_2D,
                 texture.id,
-                0
+                0,
             );
             if gl::CheckFramebufferStatus(gl::FRAMEBUFFER) != gl::FRAMEBUFFER_COMPLETE {
                 return Err(FramebufferError::CreationError);
             }
             gl::BindFramebuffer(gl::FRAMEBUFFER, 0); // bind default fb
         }
-        Ok(Self { id, texture, width, height, window_width, window_height })
+        Ok(Self {
+            id,
+            texture,
+            width,
+            height,
+            window_width,
+            window_height,
+        })
     }
 
     pub fn bind_default(&self) {
@@ -336,7 +397,9 @@ impl TextureFramebuffer {
 
 impl Drop for TextureFramebuffer {
     fn drop(&self) {
-        unsafe { gl::DeleteFramebuffers(1, [self.id].as_ptr()); }
+        unsafe {
+            gl::DeleteFramebuffers(1, [self.id].as_ptr());
+        }
     }
 }
 
@@ -351,43 +414,59 @@ impl Bind for TextureFramebuffer {
 
 pub struct UniformVec {
     location: i32,
-    values: Vec<[f32; 4]>
+    values: Vec<[f32; 4]>,
 }
 
 impl UniformVec {
     pub fn new(program: &Program, name: &str, values: Vec<[f32; 4]>) -> Result<Self, UniformError> {
         let cname = CString::new(name)?;
         let location: i32;
-        unsafe { location = gl::GetUniformLocation(program.id, cname.as_ptr()); }
+        unsafe {
+            location = gl::GetUniformLocation(program.id, cname.as_ptr());
+        }
         Ok(Self { location, values })
     }
 
     pub fn set(&self, i: usize) {
-        unsafe { gl::Uniform4fv(self.location, 1, &self.values[i][0]); }
+        unsafe {
+            gl::Uniform4fv(self.location, 1, &self.values[i][0]);
+        }
     }
 }
 
 pub struct UniformMat {
     location: i32,
-    values: Vec<[f32; 16]>
+    values: Vec<[f32; 16]>,
 }
 
 impl UniformMat {
-    pub fn new(program: &Program, name: &str, values: Vec<[f32; 16]>) -> Result<Self, UniformError> {
+    pub fn new(
+        program: &Program,
+        name: &str,
+        values: Vec<[f32; 16]>,
+    ) -> Result<Self, UniformError> {
         let cname = CString::new(name)?;
         let location: i32;
-        unsafe { location = gl::GetUniformLocation(program.id, cname.as_ptr()); }
+        unsafe {
+            location = gl::GetUniformLocation(program.id, cname.as_ptr());
+        }
         Ok(Self { location, values })
     }
 
     pub fn set(&self, i: usize) {
-        unsafe { gl::UniformMatrix4fv(self.location, 1, gl::FALSE, &self.values[i][0]); }
+        unsafe {
+            gl::UniformMatrix4fv(self.location, 1, gl::FALSE, &self.values[i][0]);
+        }
     }
 }
 
 // traits to update gl context state
-pub trait Drop { fn drop(&self); }
-pub trait Bind { fn bind(&self); }
+pub trait Drop {
+    fn drop(&self);
+}
+pub trait Bind {
+    fn bind(&self);
+}
 
 extern crate thiserror;
 use thiserror::Error;
@@ -395,35 +474,35 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum ShaderError {
     #[error("Compilation failed: {0}")]
-    CompilationError(String),
+    Compilation(String),
     #[error{"{0}"}]
-    Utf8Error(#[from] FromUtf8Error),
+    Utf8(#[from] FromUtf8Error),
     #[error{"{0}"}]
-    IoError(#[from] std::io::Error),
+    Io(#[from] std::io::Error),
     #[error{"{0}"}]
-    NulError(#[from] NulError)
+    Nul(#[from] NulError),
 }
 
 #[derive(Error, Debug)]
 pub enum ProgramError {
     #[error("Linking failed: {0}")]
-    LinkingError(String),
+    Linking(String),
     #[error{"{0}"}]
-    Utf8Error(#[from] FromUtf8Error),
+    Utf8(#[from] FromUtf8Error),
     #[error{"{0}"}]
-    ShaderError(#[from] ShaderError),
+    Shader(#[from] ShaderError),
     #[error{"{0}"}]
-    NulError(#[from] NulError)
+    Nul(#[from] NulError),
 }
 
 #[derive(Error, Debug)]
 pub enum FramebufferError {
     #[error("Framebuffer creation failed")]
-    CreationError
+    CreationError,
 }
 
 #[derive(Error, Debug)]
 pub enum UniformError {
     #[error("{0}")]
-    NulError(#[from] NulError)
+    NulError(#[from] NulError),
 }
