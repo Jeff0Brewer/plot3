@@ -1,10 +1,10 @@
 extern crate gl;
 extern crate glam;
-use glam::{Mat4, Vec3};
-use crate::gl_wrap::Window;
 use crate::axis::Axis;
+use crate::gl_wrap::Window;
 use crate::label_draw::LabelDrawer;
 use crate::scene::Scene;
+use glam::{Mat4, Vec3};
 
 pub struct Plot {
     window: Window,
@@ -13,7 +13,7 @@ pub struct Plot {
     bg_color: [f32; 3],
     bounds: Bounds,
     pub axis: Axis,
-    pub labels: LabelDrawer
+    pub labels: LabelDrawer,
 }
 
 impl Plot {
@@ -25,25 +25,29 @@ impl Plot {
             DEFAULT_FOV,
             (width / height) as f32,
             CAMERA_NEAR,
-            CAMERA_FAR
+            CAMERA_FAR,
         );
-        let view_matrix = Mat4::look_at_rh(
-            DEFAULT_EYE,
-            Vec3::ZERO,
-            Vec3::Y
-        );
+        let view_matrix = Mat4::look_at_rh(DEFAULT_EYE, Vec3::ZERO, Vec3::Y);
         let mvp = proj_matrix.mul_mat4(&view_matrix).to_cols_array();
         let bg_color = DEFAULT_BG;
         let bounds = Bounds::new(1.0, 1.0, 1.0);
         let axis = Axis::new();
         let labels = LabelDrawer::new(width as i32, height as i32)?;
 
-        Ok(Self { window, scene, mvp, bg_color, bounds, axis, labels })
+        Ok(Self {
+            window,
+            scene,
+            mvp,
+            bg_color,
+            bounds,
+            axis,
+            labels,
+        })
     }
 
     pub fn display(self) -> Result<(), PlotError> {
-        let axis_scene = self.axis.get_scene(self.mvp.clone(), &self.bounds)?;
-        let label_scene = self.labels.get_scene(self.mvp.clone(), &self.bounds)?;
+        let axis_scene = self.axis.get_scene(self.mvp, &self.bounds)?;
+        let label_scene = self.labels.get_scene(self.mvp, &self.bounds)?;
         unsafe {
             gl::ClearColor(self.bg_color[0], self.bg_color[1], self.bg_color[2], 1.0);
         }
@@ -65,7 +69,7 @@ impl Plot {
 pub struct Bounds {
     pub x: f32,
     pub y: f32,
-    pub z: f32
+    pub z: f32,
 }
 
 impl Bounds {
@@ -79,7 +83,7 @@ impl Bounds {
 }
 
 pub static DEFAULT_EYE: Vec3 = Vec3::new(1.5, 1.5, 1.5);
-static DEFAULT_FOV: f32 = 70.0 * 3.14 / 180.0;
+static DEFAULT_FOV: f32 = 70.0 * std::f32::consts::PI / 180.0;
 static CAMERA_NEAR: f32 = 0.0;
 static CAMERA_FAR: f32 = 10.0;
 static DEFAULT_BG: [f32; 3] = [0.1, 0.1, 0.1];
@@ -87,18 +91,18 @@ static DEFAULT_BG: [f32; 3] = [0.1, 0.1, 0.1];
 extern crate thiserror;
 use thiserror::Error;
 extern crate glutin;
-use glutin::{CreationError};
-use crate::gl_wrap::ShaderError;
 use crate::axis::AxisError;
+use crate::gl_wrap::ShaderError;
 use crate::label_draw::LabelError;
+use glutin::CreationError;
 #[derive(Error, Debug)]
 pub enum PlotError {
     #[error("{0}")]
-    CreationError(#[from] CreationError),
+    Creation(#[from] CreationError),
     #[error("{0}")]
-    ShaderError(#[from] ShaderError),
+    Shader(#[from] ShaderError),
     #[error("{0}")]
-    AxisError(#[from] AxisError),
+    Axis(#[from] AxisError),
     #[error("{0}")]
-    LabelError(#[from] LabelError)
+    Label(#[from] LabelError),
 }
