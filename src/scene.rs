@@ -59,25 +59,6 @@ pub struct Scene {
 }
 
 impl Scene {
-    pub fn new_empty() -> Self {
-        let passes = Vec::<DrawPass>::new();
-        let programs = Vec::<Program>::new();
-        let vaos = Vec::<VertexArray>::new();
-        let buffers = Vec::<Buffer>::new();
-        let textures = Vec::<Texture>::new();
-        let matrices = Vec::<UniformMat>::new();
-        let vectors = Vec::<UniformVec>::new();
-        Self {
-            passes,
-            programs,
-            vaos,
-            buffers,
-            textures,
-            matrices,
-            vectors,
-        }
-    }
-
     pub fn draw(&self) -> Result<(), UniformError> {
         for pass in &self.passes {
             // do not pass in buffers since buffer state is stored in vaos
@@ -91,8 +72,10 @@ impl Scene {
         }
         Ok(())
     }
+}
 
-    pub fn drop(&self) {
+impl Drop for Scene {
+    fn drop(&self) {
         for program in &self.programs {
             program.drop();
         }
