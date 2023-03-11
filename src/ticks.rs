@@ -15,10 +15,23 @@ pub struct Ticks {
     pub labels: TickLabels,
 }
 
+pub struct TickLabels {
+    pub x: bool,
+    pub y: bool,
+    pub z: bool,
+}
+
+#[allow(dead_code)]
+pub enum TickStyle {
+    Tick,
+    Grid,
+    Blank,
+}
+
 impl Ticks {
     pub fn new() -> Self {
         Self {
-            style: TickStyle::Blank,
+            style: TickStyle::Tick,
             color: [0.5, 0.5, 0.5, 1.0],
             count: 10,
             text: TextParams::new(),
@@ -98,13 +111,14 @@ impl Ticks {
     fn get_text(&self, bounds: &Bounds, font: &FontMap) -> Result<Vec<TextVert>, TicksError> {
         let mut verts = Vec::<TextVert>::new();
         let spacing = bounds.max() / (self.count as f32);
+        const M: f32 = 0.1; // label margin
         if self.labels.x {
             for i in 0..((bounds.x / spacing) as i32) {
                 let x = spacing * (i as f32);
                 verts.append(&mut font.get_verts(
-                    &format!("{:.2}", x),
+                    &format!("{:.1}", x),
                     &self.text,
-                    [x, 0.0, bounds.z],
+                    [x, 0.0, bounds.z + M],
                 )?);
             }
         }
@@ -112,9 +126,9 @@ impl Ticks {
             for i in 0..((bounds.y / spacing) as i32) {
                 let y = spacing * (i as f32);
                 verts.append(&mut font.get_verts(
-                    &format!("{:.2}", y),
+                    &format!("{:.1}", y),
                     &self.text,
-                    [bounds.x, y, 0.0],
+                    [bounds.x + M, y, 0.0],
                 )?);
             }
         }
@@ -122,9 +136,9 @@ impl Ticks {
             for i in 0..((bounds.z / spacing) as i32) {
                 let z = spacing * (i as f32);
                 verts.append(&mut font.get_verts(
-                    &format!("{:.2}", z),
+                    &format!("{:.1}", z),
                     &self.text,
-                    [bounds.x, 0.0, z],
+                    [bounds.x + M, 0.0, z],
                 )?);
             }
         }
@@ -201,12 +215,6 @@ impl Ticks {
     }
 }
 
-pub struct TickLabels {
-    pub x: bool,
-    pub y: bool,
-    pub z: bool,
-}
-
 impl TickLabels {
     pub fn new() -> Self {
         Self {
@@ -215,13 +223,6 @@ impl TickLabels {
             z: true,
         }
     }
-}
-
-#[allow(dead_code)]
-pub enum TickStyle {
-    Tick,
-    Grid,
-    Blank,
 }
 
 extern crate thiserror;

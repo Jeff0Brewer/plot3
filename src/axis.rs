@@ -152,7 +152,7 @@ impl Axis {
     }
 
     fn get_label_orient(b: &Bounds) -> LabelOrientations {
-        const M: f32 = 0.1; // label margin
+        const M: f32 = 0.2; // label margin
         LabelOrientations {
             x: LabelOrientation {
                 pos: [b.x * 0.5, 0.0, b.z + M],
