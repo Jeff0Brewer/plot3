@@ -11,7 +11,6 @@ use std::fs;
 
 pub const VERT_PER_CHAR: usize = 6; // num vertices per char in output vertex data
 static DEFAULT_FONT: &str = "./resources/Ubuntu-Regular.ttf";
-static LABEL_MARGIN: f32 = 0.1;
 static CHAR_SET: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.";
 static FONT_SIZE: f32 = 30.0;
 static FONT_SUPERSAMPLE: f32 = 3.0;
@@ -292,8 +291,6 @@ pub enum FontMapperError {
     String(#[from] std::ffi::NulError),
     #[error("{0}")]
     Font(String),
-    #[error("Invalid font file")]
-    FontFile,
 }
 
 impl From<&str> for FontMapperError {
