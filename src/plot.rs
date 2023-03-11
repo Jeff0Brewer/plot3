@@ -2,25 +2,22 @@ extern crate gl;
 extern crate glam;
 use crate::axis::Axis;
 use crate::gl_wrap::Window;
-use crate::scene::Scene;
-use crate::text::LabelDrawer;
+use crate::text::FontMapper;
+use crate::ticks::Ticks;
 use glam::{Mat4, Vec3};
 
 pub struct Plot {
     window: Window,
-    scene: Scene,
     mvp: [f32; 16],
     bg_color: [f32; 3],
     bounds: Bounds,
+    font_mapper: FontMapper,
     pub axis: Axis,
-    pub labels: LabelDrawer,
+    pub ticks: Ticks,
 }
 
 impl Plot {
     pub fn new(title: &str, width: f64, height: f64) -> Result<Self, PlotError> {
-        let window = Window::new(title, width, height)?;
-        let scene = Scene::new_empty();
-
         let proj_matrix = Mat4::perspective_rh_gl(
             DEFAULT_FOV,
             (width / height) as f32,
@@ -29,29 +26,27 @@ impl Plot {
         );
         let view_matrix = Mat4::look_at_rh(DEFAULT_EYE, Vec3::ZERO, Vec3::Y);
         let mvp = proj_matrix.mul_mat4(&view_matrix).to_cols_array();
-        let bg_color = DEFAULT_BG;
-        let bounds = Bounds::new(1.0, 1.0, 1.0);
-        let axis = Axis::new();
-        let labels = LabelDrawer::new(width as i32, height as i32)?;
-
         Ok(Self {
-            window,
-            scene,
+            window: Window::new(title, width, height)?,
             mvp,
-            bg_color,
-            bounds,
-            axis,
-            labels,
+            bg_color: DEFAULT_BG,
+            bounds: Bounds::new(1.0, 1.0, 1.0),
+            font_mapper: FontMapper::new(width as i32, height as i32)?,
+            axis: Axis::new(),
+            ticks: Ticks::new(),
         })
     }
 
-    pub fn display(self) -> Result<(), PlotError> {
-        let axis_scene = self.axis.get_scene(self.mvp, &self.bounds)?;
-        let label_scene = self.labels.get_scene(self.mvp, &self.bounds)?;
+    pub fn display(mut self) -> Result<(), PlotError> {
+        let axis_font = self.font_mapper.get_font(&self.axis.text.font)?;
+        let scenes = vec![
+            self.axis.get_scene(self.mvp, &self.bounds, axis_font)?,
+            self.ticks.get_scene(self.mvp, &self.bounds)?,
+        ];
         unsafe {
             gl::ClearColor(self.bg_color[0], self.bg_color[1], self.bg_color[2], 1.0);
         }
-        self.window.run(vec![axis_scene, label_scene, self.scene]);
+        self.window.run(scenes);
         Ok(())
     }
 
@@ -93,7 +88,8 @@ use thiserror::Error;
 extern crate glutin;
 use crate::axis::AxisError;
 use crate::gl_wrap::ShaderError;
-use crate::text::LabelError;
+use crate::text::FontMapperError;
+use crate::ticks::TicksError;
 use glutin::CreationError;
 #[derive(Error, Debug)]
 pub enum PlotError {
@@ -104,5 +100,7 @@ pub enum PlotError {
     #[error("{0}")]
     Axis(#[from] AxisError),
     #[error("{0}")]
-    Label(#[from] LabelError),
+    Ticks(#[from] TicksError),
+    #[error("{0}")]
+    Font(#[from] FontMapperError),
 }
