@@ -1,6 +1,5 @@
 mod axis;
 mod axis_vert;
-mod font_map;
 mod gl_wrap;
 mod label_draw;
 mod plot;
