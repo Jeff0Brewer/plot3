@@ -5,10 +5,10 @@ use gl::types::GLenum;
 
 // struct containing all info for single gl draw operation
 pub struct DrawPass {
-    draw_type: GLenum,
-    start: i32,
-    count: i32,
-    inds: DrawInds,
+    pub draw_type: GLenum,
+    pub start: i32,
+    pub count: i32,
+    pub inds: DrawInds,
 }
 
 pub struct DrawInds {
@@ -20,15 +20,6 @@ pub struct DrawInds {
 }
 
 impl DrawPass {
-    pub fn new(draw_type: GLenum, start: i32, count: i32, inds: DrawInds) -> Self {
-        Self {
-            draw_type,
-            start,
-            count,
-            inds,
-        }
-    }
-
     pub fn draw(
         &self,
         programs: &[Program],
@@ -58,38 +49,18 @@ impl DrawPass {
 
 // struct containing all gl resources and draw operations for complex scene
 pub struct Scene {
-    draws: Vec<DrawPass>,
-    programs: Vec<Program>,
-    vaos: Vec<VertexArray>,
-    buffers: Vec<Buffer>,
-    textures: Vec<Texture>,
-    matrices: Vec<UniformMat>,
-    vectors: Vec<UniformVec>,
+    pub passes: Vec<DrawPass>,
+    pub programs: Vec<Program>,
+    pub vaos: Vec<VertexArray>,
+    pub buffers: Vec<Buffer>,
+    pub textures: Vec<Texture>,
+    pub matrices: Vec<UniformMat>,
+    pub vectors: Vec<UniformVec>,
 }
 
 impl Scene {
-    pub fn new(
-        draws: Vec<DrawPass>,
-        programs: Vec<Program>,
-        vaos: Vec<VertexArray>,
-        buffers: Vec<Buffer>,
-        textures: Vec<Texture>,
-        matrices: Vec<UniformMat>,
-        vectors: Vec<UniformVec>,
-    ) -> Self {
-        Self {
-            draws,
-            programs,
-            vaos,
-            buffers,
-            textures,
-            matrices,
-            vectors,
-        }
-    }
-
     pub fn new_empty() -> Self {
-        let draws = Vec::<DrawPass>::new();
+        let passes = Vec::<DrawPass>::new();
         let programs = Vec::<Program>::new();
         let vaos = Vec::<VertexArray>::new();
         let buffers = Vec::<Buffer>::new();
@@ -97,7 +68,7 @@ impl Scene {
         let matrices = Vec::<UniformMat>::new();
         let vectors = Vec::<UniformVec>::new();
         Self {
-            draws,
+            passes,
             programs,
             vaos,
             buffers,
@@ -108,7 +79,7 @@ impl Scene {
     }
 
     pub fn draw(&self) -> Result<(), UniformError> {
-        for pass in &self.draws {
+        for pass in &self.passes {
             // do not pass in buffers since buffer state is stored in vaos
             pass.draw(
                 &self.programs,
