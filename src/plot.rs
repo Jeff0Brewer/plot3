@@ -2,8 +2,8 @@ extern crate gl;
 extern crate glam;
 use crate::axis::Axis;
 use crate::gl_wrap::Window;
-use crate::label_draw::LabelDrawer;
 use crate::scene::Scene;
+use crate::text::LabelDrawer;
 use glam::{Mat4, Vec3};
 
 pub struct Plot {
@@ -93,7 +93,7 @@ use thiserror::Error;
 extern crate glutin;
 use crate::axis::AxisError;
 use crate::gl_wrap::ShaderError;
-use crate::label_draw::LabelError;
+use crate::text::LabelError;
 use glutin::CreationError;
 #[derive(Error, Debug)]
 pub enum PlotError {

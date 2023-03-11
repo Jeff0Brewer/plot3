@@ -1,9 +1,9 @@
 mod axis;
 mod axis_vert;
 mod gl_wrap;
-mod label_draw;
 mod plot;
 mod scene;
+mod text;
 mod vertices;
 use axis::TickStyle;
 use plot::Plot;
