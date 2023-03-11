@@ -1,18 +1,34 @@
 extern crate fontdue;
 extern crate gl;
+extern crate glam;
 use crate::gl_wrap::{Bind, Buffer, Drop, Program, Texture, TextureFramebuffer, VertexArray};
 use crate::vertices::{bmp_arr, bmp_vert, BitmapVert};
+use crate::vertices::{bmp_to_text_vert, TextVert};
 use fontdue::{Font, FontSettings};
 use std::collections::HashMap;
 use std::ffi::CString;
 use std::fs;
 
+pub const VERT_PER_CHAR: usize = 6; // num vertices per char in output vertex data
+static DEFAULT_FONT: &str = "./resources/Ubuntu-Regular.ttf";
+static CHAR_SET: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.";
+static FONT_SIZE: f32 = 30.0;
+static FONT_SUPERSAMPLE: f32 = 3.0;
+static MAP_SIZE: [f32; 2] = [1024.0, 512.0];
+static NUM_VERTEX: i32 = 4;
+static VERTICES: [BitmapVert; 4] = bmp_arr![
+    [0.5, 1.0, 1.0, 0.0],
+    [0.5, 0.0, 1.0, 1.0],
+    [-0.5, 1.0, 0.0, 0.0],
+    [-0.5, 0.0, 0.0, 1.0]
+];
+
 pub struct FontMapper {
     program: Program,
     vao: VertexArray,
     buffer: Buffer,
-    chars: Vec<char>,
     uniforms: FontMapperUniforms,
+    chars: Vec<char>,
     window_size: [i32; 2],
 }
 
@@ -23,15 +39,18 @@ struct FontMapperUniforms {
 
 impl FontMapper {
     pub fn new(window_width: i32, window_height: i32) -> Result<Self, FontMapperError> {
-        let program =
-            Program::new_from_files("./shaders/bitmap_vert.glsl", "./shaders/bitmap_frag.glsl")?;
-        let pos_loc = program.get_attrib_location("position")?;
-        let tcoord_loc = program.get_attrib_location("a_texCoord")?;
+        // init gl resources for font bitmap creation
+        const VERT: &str = "./shaders/bitmap_vert.glsl";
+        const FRAG: &str = "./shaders/bitmap_frag.glsl";
+        let program = Program::new_from_files(VERT, FRAG)?;
         let vao = VertexArray::new();
         let buffer = Buffer::new_from(&VERTICES, gl::STATIC_DRAW);
+        let pos_loc = program.get_attrib_location("position")?;
+        let tcoord_loc = program.get_attrib_location("a_texCoord")?;
         vao.set_attribute::<BitmapVert>(pos_loc, 2, 0);
         vao.set_attribute::<BitmapVert>(tcoord_loc, 2, 2);
 
+        // init program uniforms / get locations
         program.bind();
         let uniforms: FontMapperUniforms;
         let char_size_cname = CString::new("char_size")?;
@@ -67,7 +86,7 @@ impl FontMapper {
     pub fn gen_font_map(&self, font_file: &str) -> Result<FontMap, FontMapperError> {
         let mut vertices = Vec::<BitmapVert>::new();
         let mut indices = HashMap::<char, usize>::new();
-        let font = FontMapper::get_font(font_file)?;
+        let font = FontMapper::get_fontdue(font_file)?;
         let framebuffer = self.new_tex_fb()?;
 
         // bind constant gl resources
@@ -111,15 +130,17 @@ impl FontMapper {
             let start_ind = vertices.len();
             indices.insert(self.chars[i], start_ind);
 
-            // quad size / 2
-            let w2 = char_size[0] * 0.5;
-            let h2 = line_height * 0.5;
+            // quad size
+            let w = char_size[0];
+            let h = line_height;
+            let w2 = w * 0.5;
+            let h2 = h * 0.5;
             // font map texture coords for +/- x/y
             let tpx = (grid_x + w2) / MAP_SIZE[0];
             let tnx = (grid_x - w2) / MAP_SIZE[0];
             let tpy = (grid_y + h2 + avg_alignment) / MAP_SIZE[1];
             let tny = (grid_y - h2 + avg_alignment) / MAP_SIZE[1];
-            let mut quad = FontMapper::get_quad(char_size[0], line_height, tpx, tnx, tpy, tny);
+            let mut quad = FontMapper::get_quad(w, h, tpx, tnx, tpy, tny);
             vertices.append(&mut quad);
         }
         // free texture framebuffer for finished font map and bind default
@@ -136,7 +157,7 @@ impl FontMapper {
     }
 
     // get fontdue font for rasterization
-    fn get_font(font_file: &str) -> Result<Font, FontMapperError> {
+    fn get_fontdue(font_file: &str) -> Result<Font, FontMapperError> {
         let font_bytes = &fs::read(font_file)? as &[u8];
         let font = Font::from_bytes(font_bytes, FontSettings::default())?;
         Ok(font)
@@ -193,24 +214,66 @@ pub struct FontMap {
     pub inds: HashMap<char, usize>,
 }
 
+impl FontMap {
+    pub fn get_verts(
+        &self,
+        label: &str,
+        params: &TextParams,
+        position: [f32; 3],
+    ) -> Result<Vec<TextVert>, FontMapError> {
+        let mut vertices = Vec::<TextVert>::new();
+        let mut offset: f32 = 0.0;
+        for c in label.chars() {
+            if let ' ' = c {
+                // add fixed width for space character
+                offset += params.size;
+                continue;
+            }
+            // get start index of vertex data if char exists in font texture
+            let vert_ind = match self.inds.get(&c) {
+                Some(&index) => index,
+                None => return Err(FontMapError::Character(c)),
+            };
+            // character width / 2 from first vertex x coordinate
+            let char_spacing = self.verts[vert_ind].position[0] + params.kearning;
+            offset += char_spacing;
+            for i in 0..VERT_PER_CHAR {
+                let mut vert = bmp_to_text_vert!(self.verts[i + vert_ind], position);
+                vert.offset[0] += offset; // layout text on x axis
+                vertices.push(vert);
+            }
+            offset += char_spacing;
+        }
+        // center text about origin
+        let mid_width = offset * 0.5;
+        for vert in &mut vertices {
+            vert.offset[0] -= mid_width;
+        }
+        Ok(vertices)
+    }
+}
+
 impl Drop for FontMap {
     fn drop(&self) {
         self.texture.drop();
     }
 }
 
-static CHAR_SET: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-static FONT_SIZE: f32 = 30.0;
-static FONT_SUPERSAMPLE: f32 = 3.0;
-static MAP_SIZE: [f32; 2] = [1024.0, 512.0];
-static NUM_VERTEX: i32 = 4;
-static VERTICES: [BitmapVert; 4] = bmp_arr![
-    [0.5, 1.0, 1.0, 0.0],
-    [0.5, 0.0, 1.0, 1.0],
-    [-0.5, 1.0, 0.0, 0.0],
-    [-0.5, 0.0, 0.0, 1.0]
-];
-pub const VERT_PER_CHAR: usize = 6; // num vertices per char in output vertex data
+pub struct TextParams {
+    pub font: String,
+    pub size: f32,
+    pub kearning: f32,
+}
+
+impl TextParams {
+    pub fn new() -> Self {
+        Self {
+            font: DEFAULT_FONT.to_string(),
+            size: FONT_SIZE,
+            kearning: 0.0,
+        }
+    }
+}
 
 extern crate thiserror;
 use crate::gl_wrap::{FramebufferError, ProgramError};
@@ -234,4 +297,10 @@ impl From<&str> for FontMapperError {
     fn from(s: &str) -> Self {
         Self::Font(s.to_string())
     }
+}
+
+#[derive(Error, Debug)]
+pub enum FontMapError {
+    #[error("Invalid character '{0}'")]
+    Character(char),
 }
