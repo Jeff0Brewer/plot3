@@ -12,7 +12,7 @@ use std::fs;
 pub const VERT_PER_CHAR: usize = 6; // num vertices per char in output vertex data
 static DEFAULT_FONT: &str = "./resources/Ubuntu-Regular.ttf";
 static LABEL_MARGIN: f32 = 0.1;
-static CHAR_SET: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+static CHAR_SET: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.";
 static FONT_SIZE: f32 = 30.0;
 static FONT_SUPERSAMPLE: f32 = 3.0;
 static MAP_SIZE: [f32; 2] = [1024.0, 512.0];
@@ -31,7 +31,6 @@ pub struct FontMapper {
     uniforms: FontMapperUniforms,
     chars: Vec<char>,
     window_size: [i32; 2],
-    fonts: HashMap<String, FontMap>,
 }
 
 struct FontMapperUniforms {
@@ -71,7 +70,6 @@ impl FontMapper {
 
         let chars: Vec<char> = CHAR_SET.chars().collect();
         let window_size = [window_width, window_height];
-        let fonts = HashMap::<String, FontMap>::new();
 
         Ok(Self {
             program,
@@ -80,20 +78,7 @@ impl FontMapper {
             chars,
             uniforms,
             window_size,
-            fonts,
         })
-    }
-
-    // get fontmap from stored values or generate new from file
-    pub fn get_font(&mut self, font_file: &String) -> Result<&FontMap, FontMapperError> {
-        if self.fonts.get(font_file).is_none() {
-            let font = self.gen_font_map(font_file)?;
-            self.fonts.insert(font_file.to_string(), font);
-        }
-        match self.fonts.get(font_file) {
-            Some(font) => Ok(font),
-            None => Err(FontMapperError::FontFile),
-        }
     }
 
     // create texture with rasterized chars for single font face

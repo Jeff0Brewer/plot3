@@ -37,11 +37,12 @@ impl Plot {
         })
     }
 
-    pub fn display(mut self) -> Result<(), PlotError> {
-        let axis_font = self.font_mapper.get_font(&self.axis.text.font)?;
+    pub fn display(self) -> Result<(), PlotError> {
+        let axis_font = self.font_mapper.gen_font_map(&self.axis.text.font)?;
+        let ticks_font = self.font_mapper.gen_font_map(&self.ticks.text.font)?;
         let scenes = vec![
-            self.axis.get_scene(self.mvp, &self.bounds, axis_font)?,
-            self.ticks.get_scene(self.mvp, &self.bounds)?,
+            self.axis.get_scene(self.mvp, &self.bounds, &axis_font)?,
+            self.ticks.get_scene(self.mvp, &self.bounds, &ticks_font)?,
         ];
         unsafe {
             gl::ClearColor(self.bg_color[0], self.bg_color[1], self.bg_color[2], 1.0);
