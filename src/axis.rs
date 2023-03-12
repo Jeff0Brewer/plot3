@@ -151,15 +151,15 @@ impl Axis {
         LabelOrientations {
             x: LabelOrientation {
                 pos: [b.x * 0.5, 0.0, b.z + M],
-                align: [1.0, 0.0, 0.0, 1.0],
+                align: [1.0, 0.0, 0.0],
             },
             y: LabelOrientation {
                 pos: [b.x + M, b.y * 0.5, 0.0],
-                align: [0.0, -1.0, 0.0, 1.0],
+                align: [0.0, -1.0, 0.0],
             },
             z: LabelOrientation {
                 pos: [b.x + M, 0.0, b.z * 0.5],
-                align: [0.0, 0.0, 1.0, 1.0],
+                align: [0.0, 0.0, 1.0],
             },
         }
     }
@@ -189,7 +189,7 @@ struct LabelOrientations {
 
 struct LabelOrientation {
     pub pos: [f32; 3],
-    pub align: [f32; 4],
+    pub align: [f32; 3],
 }
 
 extern crate thiserror;
