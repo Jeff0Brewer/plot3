@@ -7,9 +7,26 @@ use crate::scene::{DrawInds, DrawPass, Scene};
 use crate::text::{FontMap, TextParams};
 use crate::vertices::{pos_vert, PosVert, TextVert};
 
+pub struct AxisLabels {
+    pub x: String,
+    pub y: String,
+    pub z: String,
+    pub param: TextParams,
+}
+
+impl AxisLabels {
+    pub fn new() -> Self {
+        Self {
+            x: "x axis".to_string(),
+            y: "y axis".to_string(),
+            z: "z axis".to_string(),
+            param: TextParams::with_size(14.0),
+        }
+    }
+}
+
 pub struct Axis {
     pub color: [f32; 4],
-    pub text: TextParams,
     pub labels: AxisLabels,
 }
 
@@ -17,7 +34,6 @@ impl Axis {
     pub fn new() -> Self {
         Self {
             color: [1.0, 1.0, 1.0, 1.0],
-            text: TextParams::with_size(16.0),
             labels: AxisLabels::new(),
         }
     }
@@ -32,11 +48,11 @@ impl Axis {
         let line_verts = Axis::get_verts(bounds);
         let orient = Axis::get_label_orient(bounds);
         let mut text_verts = Vec::<TextVert>::new();
-        text_verts.append(&mut font.get_verts(&self.labels.x, &self.text, orient.x.pos)?);
+        text_verts.append(&mut font.get_verts(&self.labels.x, &self.labels.param, orient.x.pos)?);
         let x_vlen = text_verts.len() as i32;
-        text_verts.append(&mut font.get_verts(&self.labels.y, &self.text, orient.y.pos)?);
+        text_verts.append(&mut font.get_verts(&self.labels.y, &self.labels.param, orient.y.pos)?);
         let y_vlen = text_verts.len() as i32;
-        text_verts.append(&mut font.get_verts(&self.labels.z, &self.text, orient.z.pos)?);
+        text_verts.append(&mut font.get_verts(&self.labels.z, &self.labels.param, orient.z.pos)?);
         let z_vlen = text_verts.len() as i32;
 
         // init gl resources for line drawing
@@ -62,11 +78,12 @@ impl Axis {
         text_vao.set_attribute::<TextVert>(text_pos_loc, 3, 0);
         text_vao.set_attribute::<TextVert>(text_off_loc, 2, 3);
         text_vao.set_attribute::<TextVert>(text_tco_loc, 2, 5);
-        let u_mvp_text = Uniform::new(&text_program, "mvp", &mvp)?;
-        let u_scale = Uniform::new(&text_program, "scale", &[font.scale * self.text.size])?;
+        let scale = font.scale * self.labels.param.size;
+        let u_scale = Uniform::new(&text_program, "scale", &[scale])?;
         let u_align_x = Uniform::new(&text_program, "alignment", &orient.x.align)?;
         let u_align_y = Uniform::new(&text_program, "alignment", &orient.y.align)?;
         let u_align_z = Uniform::new(&text_program, "alignment", &orient.z.align)?;
+        let u_mvp_text = Uniform::new(&text_program, "mvp", &mvp)?;
 
         let scene = Scene {
             programs: vec![line_program, text_program],
@@ -148,7 +165,7 @@ impl Axis {
     }
 
     fn get_label_orient(b: &Bounds) -> LabelOrientations {
-        const M: f32 = 0.2; // label margin
+        const M: f32 = 0.15; // label margin
         LabelOrientations {
             x: LabelOrientation {
                 pos: [b.x * 0.5, 0.0, b.z + M],
@@ -162,22 +179,6 @@ impl Axis {
                 pos: [b.x + M, 0.0, b.z * 0.5],
                 align: [0.0, 0.0, 1.0],
             },
-        }
-    }
-}
-
-pub struct AxisLabels {
-    pub x: String,
-    pub y: String,
-    pub z: String,
-}
-
-impl AxisLabels {
-    pub fn new() -> Self {
-        Self {
-            x: "x axis".to_string(),
-            y: "y axis".to_string(),
-            z: "z axis".to_string(),
         }
     }
 }

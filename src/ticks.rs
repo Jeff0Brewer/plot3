@@ -7,18 +7,29 @@ use crate::scene::{DrawInds, DrawPass, Scene};
 use crate::text::{FontMap, TextParams};
 use crate::vertices::{pos_vert, PosVert, TextVert};
 
-pub struct Ticks {
-    pub style: TickStyle,
-    pub color: [f32; 4],
-    pub count: i32,
-    pub text: TextParams,
-    pub labels: TickLabels,
-}
-
 pub struct TickLabels {
     pub x: bool,
     pub y: bool,
     pub z: bool,
+    pub param: TextParams,
+}
+
+impl TickLabels {
+    pub fn new() -> Self {
+        Self {
+            x: true,
+            y: true,
+            z: true,
+            param: TextParams::with_size(10.0),
+        }
+    }
+}
+
+pub struct Ticks {
+    pub style: TickStyle,
+    pub color: [f32; 4],
+    pub count: i32,
+    pub labels: TickLabels,
 }
 
 #[allow(dead_code)]
@@ -34,7 +45,6 @@ impl Ticks {
             style: TickStyle::Tick,
             color: [0.5, 0.5, 0.5, 1.0],
             count: 10,
-            text: TextParams::with_size(10.0),
             labels: TickLabels::new(),
         }
     }
@@ -69,8 +79,9 @@ impl Ticks {
         text_vao.set_attribute::<TextVert>(text_pos_loc, 3, 0);
         text_vao.set_attribute::<TextVert>(text_off_loc, 2, 3);
         text_vao.set_attribute::<TextVert>(text_tco_loc, 2, 5);
+        let scale = font.scale * self.labels.param.size;
+        let u_scale = Uniform::new(&text_program, "scale", &[scale])?;
         let u_mvp_text = Uniform::new(&text_program, "mvp", &mvp)?;
-        let u_scale = Uniform::new(&text_program, "scale", &[font.scale * self.text.size])?;
 
         let scene = Scene {
             programs: vec![line_program, text_program],
@@ -111,13 +122,13 @@ impl Ticks {
     fn get_text(&self, bounds: &Bounds, font: &FontMap) -> Result<Vec<TextVert>, TicksError> {
         let mut verts = Vec::<TextVert>::new();
         let spacing = bounds.max() / (self.count as f32);
-        const M: f32 = 0.1; // label margin
+        const M: f32 = 0.07; // label margin
         if self.labels.x {
             for i in 0..((bounds.x / spacing) as i32) {
                 let x = spacing * (i as f32);
                 verts.append(&mut font.get_verts(
                     &format!("{:.1}", x),
-                    &self.text,
+                    &self.labels.param,
                     [x, 0.0, bounds.z + M],
                 )?);
             }
@@ -127,7 +138,7 @@ impl Ticks {
                 let y = spacing * (i as f32);
                 verts.append(&mut font.get_verts(
                     &format!("{:.1}", y),
-                    &self.text,
+                    &self.labels.param,
                     [bounds.x + M, y, 0.0],
                 )?);
             }
@@ -137,7 +148,7 @@ impl Ticks {
                 let z = spacing * (i as f32);
                 verts.append(&mut font.get_verts(
                     &format!("{:.1}", z),
-                    &self.text,
+                    &self.labels.param,
                     [bounds.x + M, 0.0, z],
                 )?);
             }
@@ -212,16 +223,6 @@ impl Ticks {
             ]);
         }
         verts
-    }
-}
-
-impl TickLabels {
-    pub fn new() -> Self {
-        Self {
-            x: true,
-            y: true,
-            z: true,
-        }
     }
 }
 
