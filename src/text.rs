@@ -30,6 +30,7 @@ pub struct FontMapper {
     uniforms: FontMapperUniforms,
     chars: Vec<char>,
     window_size: [i32; 2],
+    font_scale: f32,
 }
 
 struct FontMapperUniforms {
@@ -69,6 +70,7 @@ impl FontMapper {
 
         let chars: Vec<char> = CHAR_SET.chars().collect();
         let window_size = [window_width, window_height];
+        let font_scale = 2.0 / (window_height as f32);
 
         Ok(Self {
             program,
@@ -77,6 +79,7 @@ impl FontMapper {
             chars,
             uniforms,
             window_size,
+            font_scale,
         })
     }
 
@@ -152,6 +155,7 @@ impl FontMapper {
             texture: framebuffer.texture,
             verts: vertices,
             inds: indices,
+            scale: self.font_scale,
         };
         Ok(fontmap)
     }
@@ -212,6 +216,7 @@ pub struct FontMap {
     pub texture: Texture,
     pub verts: Vec<BitmapVert>,
     pub inds: HashMap<char, usize>,
+    pub scale: f32,
 }
 
 impl FontMap {
