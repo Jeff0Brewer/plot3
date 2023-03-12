@@ -8,6 +8,6 @@ out vec2 v_texCoord;
 
 void main() {
     gl_Position = mvp * position;
-    gl_Position.xy += offset * .003;
+    gl_Position.xy += offset * gl_Position.w * .002;
     v_texCoord = a_texCoord;
 }

@@ -32,6 +32,8 @@ void main() {
     if (abs(angle) > 1.5708) { angle -= 3.1416; }
     vec2 rotated_off = rotate2d(offset, angle);
 
-    gl_Position = vec4(pos.xy + rotated_off * .003, pos.zw);
+
+    gl_Position = pos;
+    gl_Position.xy += rotated_off * pos.w * .002;
     v_texCoord = a_texCoord;
 }
