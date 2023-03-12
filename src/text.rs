@@ -278,6 +278,14 @@ impl TextParams {
             kearning: 0.0,
         }
     }
+
+    pub fn with_size(size: f32) -> Self {
+        Self {
+            font: DEFAULT_FONT.to_string(),
+            kearning: 0.0,
+            size,
+        }
+    }
 }
 
 extern crate thiserror;

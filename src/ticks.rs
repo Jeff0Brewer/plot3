@@ -30,13 +30,11 @@ pub enum TickStyle {
 
 impl Ticks {
     pub fn new() -> Self {
-        let mut text_params = TextParams::new();
-        text_params.size = 10.0;
         Self {
             style: TickStyle::Tick,
             color: [0.5, 0.5, 0.5, 1.0],
             count: 10,
-            text: text_params,
+            text: TextParams::with_size(10.0),
             labels: TickLabels::new(),
         }
     }

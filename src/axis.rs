@@ -15,11 +15,9 @@ pub struct Axis {
 
 impl Axis {
     pub fn new() -> Self {
-        let mut text_params = TextParams::new();
-        text_params.size = 16.0;
         Self {
             color: [1.0, 1.0, 1.0, 1.0],
-            text: text_params,
+            text: TextParams::with_size(16.0),
             labels: AxisLabels::new(),
         }
     }
