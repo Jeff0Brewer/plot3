@@ -1,7 +1,7 @@
 extern crate alloc;
 extern crate gl;
 extern crate glam;
-use crate::gl_wrap::{Buffer, Program, UniformMat, UniformVec, VertexArray};
+use crate::gl_wrap::{Buffer, Program, Uniform, VertexArray};
 use crate::plot::Bounds;
 use crate::scene::{DrawInds, DrawPass, Scene};
 use crate::text::{FontMap, TextParams};
@@ -55,8 +55,8 @@ impl Ticks {
         let line_buffer = Buffer::new_from(&line_verts, gl::STATIC_DRAW);
         let line_pos_loc = line_program.get_attrib_location("position")?;
         line_vao.set_attribute::<PosVert>(line_pos_loc, 3, 0);
-        let u_mvp_line = UniformMat::new(&line_program, "mvp", vec![mvp])?;
-        let u_color = UniformVec::new(&line_program, "color", vec![self.color])?;
+        let u_mvp_line = Uniform::new(&line_program, "mvp", &mvp)?;
+        let u_color = Uniform::new(&line_program, "color", &self.color)?;
 
         const TEXT_VERT: &str = "./shaders/text_vert.glsl";
         const TEXT_FRAG: &str = "./shaders/text_frag.glsl";
@@ -69,28 +69,16 @@ impl Ticks {
         text_vao.set_attribute::<TextVert>(text_pos_loc, 3, 0);
         text_vao.set_attribute::<TextVert>(text_off_loc, 2, 3);
         text_vao.set_attribute::<TextVert>(text_tco_loc, 2, 5);
-        let u_mvp_text = UniformMat::new(&text_program, "mvp", vec![mvp])?;
+        let u_mvp_text = Uniform::new(&text_program, "mvp", &mvp)?;
 
         let scene = Scene {
             programs: vec![line_program, text_program],
             vaos: vec![line_vao, text_vao],
             buffers: vec![line_buffer, text_buffer],
             textures: vec![font.texture],
-            matrices: vec![u_mvp_line, u_mvp_text],
-            vectors: vec![u_color],
+            uniforms: vec![u_mvp_line, u_color, u_mvp_text],
             passes: vec![
-                DrawPass {
-                    draw_type: gl::TRIANGLES,
-                    start: 0,
-                    count: text_verts.len() as i32,
-                    inds: DrawInds {
-                        program: 1,
-                        vao: 1,
-                        texture: Some(0),
-                        matrix: vec![[1, 0]],
-                        vector: vec![],
-                    },
-                },
+                // tick lines
                 DrawPass {
                     draw_type: gl::LINES,
                     start: 0,
@@ -99,8 +87,19 @@ impl Ticks {
                         program: 0,
                         vao: 0,
                         texture: None,
-                        matrix: vec![[0, 0]],
-                        vector: vec![[0, 0]],
+                        uniform: vec![0, 1],
+                    },
+                },
+                // text labels
+                DrawPass {
+                    draw_type: gl::TRIANGLES,
+                    start: 0,
+                    count: text_verts.len() as i32,
+                    inds: DrawInds {
+                        program: 1,
+                        vao: 1,
+                        texture: Some(0),
+                        uniform: vec![2],
                     },
                 },
             ],

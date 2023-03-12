@@ -1,6 +1,6 @@
 extern crate gl;
 use crate::gl_wrap::UniformError;
-use crate::gl_wrap::{Bind, Buffer, Drop, Program, Texture, UniformMat, UniformVec, VertexArray};
+use crate::gl_wrap::{Bind, Buffer, Drop, Program, Texture, Uniform, VertexArray};
 use gl::types::GLenum;
 
 // struct containing all info for single gl draw operation
@@ -15,8 +15,7 @@ pub struct DrawInds {
     pub program: usize,
     pub vao: usize,
     pub texture: Option<usize>,
-    pub matrix: Vec<[usize; 2]>,
-    pub vector: Vec<[usize; 2]>,
+    pub uniform: Vec<usize>,
 }
 
 impl DrawPass {
@@ -25,8 +24,7 @@ impl DrawPass {
         programs: &[Program],
         vaos: &[VertexArray],
         textures: &[Texture],
-        matrices: &[UniformMat],
-        vectors: &[UniformVec],
+        uniforms: &[Uniform],
     ) -> Result<(), UniformError> {
         let program = &programs[self.inds.program];
         program.bind();
@@ -34,11 +32,8 @@ impl DrawPass {
         if let Some(ind) = self.inds.texture {
             textures[ind].bind();
         }
-        for &m in &self.inds.matrix {
-            matrices[m[0]].set(m[1]);
-        }
-        for &v in &self.inds.vector {
-            vectors[v[0]].set(v[1]);
+        for &i in &self.inds.uniform {
+            uniforms[i].set()?;
         }
         unsafe {
             gl::DrawArrays(self.draw_type, self.start, self.count);
@@ -54,21 +49,14 @@ pub struct Scene {
     pub vaos: Vec<VertexArray>,
     pub buffers: Vec<Buffer>,
     pub textures: Vec<Texture>,
-    pub matrices: Vec<UniformMat>,
-    pub vectors: Vec<UniformVec>,
+    pub uniforms: Vec<Uniform>,
 }
 
 impl Scene {
     pub fn draw(&self) -> Result<(), UniformError> {
         for pass in &self.passes {
             // do not pass in buffers since buffer state is stored in vaos
-            pass.draw(
-                &self.programs,
-                &self.vaos,
-                &self.textures,
-                &self.matrices,
-                &self.vectors,
-            )?;
+            pass.draw(&self.programs, &self.vaos, &self.textures, &self.uniforms)?;
         }
         Ok(())
     }

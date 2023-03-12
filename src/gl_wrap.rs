@@ -412,51 +412,32 @@ impl Bind for TextureFramebuffer {
     }
 }
 
-pub struct UniformVec {
+pub struct Uniform {
     location: i32,
-    values: Vec<[f32; 4]>,
+    value: Vec<f32>,
 }
 
-impl UniformVec {
-    pub fn new(program: &Program, name: &str, values: Vec<[f32; 4]>) -> Result<Self, UniformError> {
+impl Uniform {
+    pub fn new(program: &Program, name: &str, value: &[f32]) -> Result<Self, UniformError> {
         let cname = CString::new(name)?;
         let location: i32;
         unsafe {
             location = gl::GetUniformLocation(program.id, cname.as_ptr());
         }
-        Ok(Self { location, values })
+        let value = value.to_vec();
+        Ok(Self { location, value })
     }
 
-    pub fn set(&self, i: usize) {
-        unsafe {
-            gl::Uniform4fv(self.location, 1, &self.values[i][0]);
-        }
-    }
-}
-
-pub struct UniformMat {
-    location: i32,
-    values: Vec<[f32; 16]>,
-}
-
-impl UniformMat {
-    pub fn new(
-        program: &Program,
-        name: &str,
-        values: Vec<[f32; 16]>,
-    ) -> Result<Self, UniformError> {
-        let cname = CString::new(name)?;
-        let location: i32;
-        unsafe {
-            location = gl::GetUniformLocation(program.id, cname.as_ptr());
-        }
-        Ok(Self { location, values })
-    }
-
-    pub fn set(&self, i: usize) {
-        unsafe {
-            gl::UniformMatrix4fv(self.location, 1, gl::FALSE, &self.values[i][0]);
-        }
+    pub fn set(&self) -> Result<(), UniformError> {
+        match self.value.len() {
+            1 => unsafe { gl::Uniform1f(self.location, self.value[0]) },
+            2 => unsafe { gl::Uniform2fv(self.location, 1, &self.value[0]) },
+            3 => unsafe { gl::Uniform3fv(self.location, 1, &self.value[0]) },
+            4 => unsafe { gl::Uniform4fv(self.location, 1, &self.value[0]) },
+            16 => unsafe { gl::UniformMatrix4fv(self.location, 1, gl::FALSE, &self.value[0]) },
+            _ => return Err(UniformError::Length),
+        };
+        Ok(())
     }
 }
 
@@ -504,5 +485,7 @@ pub enum FramebufferError {
 #[derive(Error, Debug)]
 pub enum UniformError {
     #[error("{0}")]
-    NulError(#[from] NulError),
+    Nul(#[from] NulError),
+    #[error("Invalid uniform length")]
+    Length,
 }
