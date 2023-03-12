@@ -15,9 +15,11 @@ pub struct Axis {
 
 impl Axis {
     pub fn new() -> Self {
+        let mut text_params = TextParams::new();
+        text_params.size = 16.0;
         Self {
             color: [1.0, 1.0, 1.0, 1.0],
-            text: TextParams::new(),
+            text: text_params,
             labels: AxisLabels::new(),
         }
     }
@@ -63,6 +65,7 @@ impl Axis {
         text_vao.set_attribute::<TextVert>(text_off_loc, 2, 3);
         text_vao.set_attribute::<TextVert>(text_tco_loc, 2, 5);
         let u_mvp_text = Uniform::new(&text_program, "mvp", &mvp)?;
+        let u_scale = Uniform::new(&text_program, "scale", &[font.scale * self.text.size])?;
         let u_align_x = Uniform::new(&text_program, "alignment", &orient.x.align)?;
         let u_align_y = Uniform::new(&text_program, "alignment", &orient.y.align)?;
         let u_align_z = Uniform::new(&text_program, "alignment", &orient.z.align)?;
@@ -73,7 +76,7 @@ impl Axis {
             buffers: vec![line_buffer, text_buffer],
             textures: vec![font.texture],
             uniforms: vec![
-                u_mvp_line, u_color, u_mvp_text, u_align_x, u_align_y, u_align_z,
+                u_mvp_line, u_color, u_mvp_text, u_scale, u_align_x, u_align_y, u_align_z,
             ],
             passes: vec![
                 // axis lines
@@ -97,7 +100,7 @@ impl Axis {
                         program: 1,
                         vao: 1,
                         texture: Some(0),
-                        uniform: vec![2, 3],
+                        uniform: vec![2, 3, 4],
                     },
                 },
                 // y label
@@ -109,7 +112,7 @@ impl Axis {
                         program: 1,
                         vao: 1,
                         texture: Some(0),
-                        uniform: vec![2, 4],
+                        uniform: vec![2, 3, 5],
                     },
                 },
                 // z label
@@ -121,7 +124,7 @@ impl Axis {
                         program: 1,
                         vao: 1,
                         texture: Some(0),
-                        uniform: vec![2, 5],
+                        uniform: vec![2, 3, 6],
                     },
                 },
             ],

@@ -30,11 +30,13 @@ pub enum TickStyle {
 
 impl Ticks {
     pub fn new() -> Self {
+        let mut text_params = TextParams::new();
+        text_params.size = 10.0;
         Self {
             style: TickStyle::Tick,
             color: [0.5, 0.5, 0.5, 1.0],
             count: 10,
-            text: TextParams::new(),
+            text: text_params,
             labels: TickLabels::new(),
         }
     }
@@ -70,13 +72,14 @@ impl Ticks {
         text_vao.set_attribute::<TextVert>(text_off_loc, 2, 3);
         text_vao.set_attribute::<TextVert>(text_tco_loc, 2, 5);
         let u_mvp_text = Uniform::new(&text_program, "mvp", &mvp)?;
+        let u_scale = Uniform::new(&text_program, "scale", &[font.scale * self.text.size])?;
 
         let scene = Scene {
             programs: vec![line_program, text_program],
             vaos: vec![line_vao, text_vao],
             buffers: vec![line_buffer, text_buffer],
             textures: vec![font.texture],
-            uniforms: vec![u_mvp_line, u_color, u_mvp_text],
+            uniforms: vec![u_mvp_line, u_color, u_mvp_text, u_scale],
             passes: vec![
                 // tick lines
                 DrawPass {
@@ -99,7 +102,7 @@ impl Ticks {
                         program: 1,
                         vao: 1,
                         texture: Some(0),
-                        uniform: vec![2],
+                        uniform: vec![2, 3],
                     },
                 },
             ],

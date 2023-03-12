@@ -5,6 +5,7 @@ in vec2 offset;
 in vec2 a_texCoord;
 uniform mat4 mvp;
 uniform vec3 alignment;
+uniform float scale;
 out vec2 v_texCoord;
 
 vec2 rotate2d(vec2 vec, float angle) {
@@ -33,6 +34,6 @@ void main() {
     vec2 rotated_off = rotate2d(offset, angle);
 
     gl_Position = pos;
-    gl_Position.xy += rotated_off * pos.w * .002;
+    gl_Position.xy += rotated_off * scale * pos.w;
     v_texCoord = a_texCoord;
 }
