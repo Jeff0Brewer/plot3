@@ -4,7 +4,7 @@ extern crate glam;
 use crate::gl_wrap::{Buffer, Program, Uniform, VertexArray};
 use crate::plot::Bounds;
 use crate::scene::{DrawInds, DrawPass, Scene};
-use crate::text::{FontMap, TextParams};
+use crate::text::{FontMap, TextParams, DEFAULT_FONT};
 use crate::vertices::{pos_vert, PosVert, TextVert};
 
 pub struct AxisLabels {
@@ -20,7 +20,11 @@ impl AxisLabels {
             x: "x axis".to_string(),
             y: "y axis".to_string(),
             z: "z axis".to_string(),
-            param: TextParams::with_size(14.0),
+            param: TextParams {
+                font: DEFAULT_FONT.to_string(),
+                size: 14.0,
+                kearning: 0.0,
+            },
         }
     }
 }

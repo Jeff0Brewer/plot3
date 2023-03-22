@@ -38,8 +38,12 @@ impl Plot {
     }
 
     pub fn display(self) -> Result<(), PlotError> {
-        let axis_font = self.font_mapper.gen_font_map(&self.axis.text.font)?;
-        let ticks_font = self.font_mapper.gen_font_map(&self.ticks.text.font)?;
+        let axis_font = self
+            .font_mapper
+            .gen_font_map(&self.axis.labels.param.font)?;
+        let ticks_font = self
+            .font_mapper
+            .gen_font_map(&self.ticks.labels.param.font)?;
         let scenes = vec![
             self.axis.get_scene(self.mvp, &self.bounds, &axis_font)?,
             self.ticks.get_scene(self.mvp, &self.bounds, &ticks_font)?,
