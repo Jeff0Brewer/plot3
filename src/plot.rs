@@ -38,8 +38,12 @@ impl Plot {
     }
 
     pub fn display(self) -> Result<(), PlotError> {
-        let axis_font = self.font_mapper.gen_font_map(&self.axis.text.font)?;
-        let ticks_font = self.font_mapper.gen_font_map(&self.ticks.text.font)?;
+        let axis_font = self
+            .font_mapper
+            .gen_font_map(&self.axis.labels.param.font)?;
+        let ticks_font = self
+            .font_mapper
+            .gen_font_map(&self.ticks.labels.param.font)?;
         let scenes = vec![
             self.axis.get_scene(self.mvp, &self.bounds, &axis_font)?,
             self.ticks.get_scene(self.mvp, &self.bounds, &ticks_font)?,
@@ -78,8 +82,8 @@ impl Bounds {
     }
 }
 
-pub static DEFAULT_EYE: Vec3 = Vec3::new(1.5, 1.5, 1.5);
-static DEFAULT_FOV: f32 = 70.0 * std::f32::consts::PI / 180.0;
+pub static DEFAULT_EYE: Vec3 = Vec3::new(2.0, 2.0, 2.0);
+static DEFAULT_FOV: f32 = 50.0 * std::f32::consts::PI / 180.0;
 static CAMERA_NEAR: f32 = 0.0;
 static CAMERA_FAR: f32 = 10.0;
 static DEFAULT_BG: [f32; 3] = [0.1, 0.1, 0.1];

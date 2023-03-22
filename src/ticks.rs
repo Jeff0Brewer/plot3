@@ -1,24 +1,39 @@
 extern crate alloc;
 extern crate gl;
 extern crate glam;
-use crate::gl_wrap::{Buffer, Program, UniformMat, UniformVec, VertexArray};
+use crate::gl_wrap::{Buffer, Program, Uniform, VertexArray};
 use crate::plot::Bounds;
 use crate::scene::{DrawInds, DrawPass, Scene};
-use crate::text::{FontMap, TextParams};
+use crate::text::{FontMap, TextParams, DEFAULT_FONT};
 use crate::vertices::{pos_vert, PosVert, TextVert};
-
-pub struct Ticks {
-    pub style: TickStyle,
-    pub color: [f32; 4],
-    pub count: i32,
-    pub text: TextParams,
-    pub labels: TickLabels,
-}
 
 pub struct TickLabels {
     pub x: bool,
     pub y: bool,
     pub z: bool,
+    pub param: TextParams,
+}
+
+impl TickLabels {
+    pub fn new() -> Self {
+        Self {
+            x: true,
+            y: true,
+            z: true,
+            param: TextParams {
+                font: DEFAULT_FONT.to_string(),
+                size: 10.0,
+                kearning: 0.0,
+            },
+        }
+    }
+}
+
+pub struct Ticks {
+    pub style: TickStyle,
+    pub color: [f32; 4],
+    pub count: i32,
+    pub labels: TickLabels,
 }
 
 #[allow(dead_code)]
@@ -34,7 +49,6 @@ impl Ticks {
             style: TickStyle::Tick,
             color: [0.5, 0.5, 0.5, 1.0],
             count: 10,
-            text: TextParams::new(),
             labels: TickLabels::new(),
         }
     }
@@ -55,8 +69,8 @@ impl Ticks {
         let line_buffer = Buffer::new_from(&line_verts, gl::STATIC_DRAW);
         let line_pos_loc = line_program.get_attrib_location("position")?;
         line_vao.set_attribute::<PosVert>(line_pos_loc, 3, 0);
-        let u_mvp_line = UniformMat::new(&line_program, "mvp", vec![mvp])?;
-        let u_color = UniformVec::new(&line_program, "color", vec![self.color])?;
+        let u_mvp_line = Uniform::new(&line_program, "mvp", &mvp)?;
+        let u_color = Uniform::new(&line_program, "color", &self.color)?;
 
         const TEXT_VERT: &str = "./shaders/text_vert.glsl";
         const TEXT_FRAG: &str = "./shaders/text_frag.glsl";
@@ -69,28 +83,18 @@ impl Ticks {
         text_vao.set_attribute::<TextVert>(text_pos_loc, 3, 0);
         text_vao.set_attribute::<TextVert>(text_off_loc, 2, 3);
         text_vao.set_attribute::<TextVert>(text_tco_loc, 2, 5);
-        let u_mvp_text = UniformMat::new(&text_program, "mvp", vec![mvp])?;
+        let scale = font.scale * self.labels.param.size;
+        let u_scale = Uniform::new(&text_program, "scale", &[scale])?;
+        let u_mvp_text = Uniform::new(&text_program, "mvp", &mvp)?;
 
         let scene = Scene {
             programs: vec![line_program, text_program],
             vaos: vec![line_vao, text_vao],
             buffers: vec![line_buffer, text_buffer],
             textures: vec![font.texture],
-            matrices: vec![u_mvp_line, u_mvp_text],
-            vectors: vec![u_color],
+            uniforms: vec![u_mvp_line, u_color, u_mvp_text, u_scale],
             passes: vec![
-                DrawPass {
-                    draw_type: gl::TRIANGLES,
-                    start: 0,
-                    count: text_verts.len() as i32,
-                    inds: DrawInds {
-                        program: 1,
-                        vao: 1,
-                        texture: Some(0),
-                        matrix: vec![[1, 0]],
-                        vector: vec![],
-                    },
-                },
+                // tick lines
                 DrawPass {
                     draw_type: gl::LINES,
                     start: 0,
@@ -99,8 +103,19 @@ impl Ticks {
                         program: 0,
                         vao: 0,
                         texture: None,
-                        matrix: vec![[0, 0]],
-                        vector: vec![[0, 0]],
+                        uniform: vec![0, 1],
+                    },
+                },
+                // text labels
+                DrawPass {
+                    draw_type: gl::TRIANGLES,
+                    start: 0,
+                    count: text_verts.len() as i32,
+                    inds: DrawInds {
+                        program: 1,
+                        vao: 1,
+                        texture: Some(0),
+                        uniform: vec![2, 3],
                     },
                 },
             ],
@@ -111,13 +126,13 @@ impl Ticks {
     fn get_text(&self, bounds: &Bounds, font: &FontMap) -> Result<Vec<TextVert>, TicksError> {
         let mut verts = Vec::<TextVert>::new();
         let spacing = bounds.max() / (self.count as f32);
-        const M: f32 = 0.1; // label margin
+        const M: f32 = 0.07; // label margin
         if self.labels.x {
             for i in 0..((bounds.x / spacing) as i32) {
                 let x = spacing * (i as f32);
                 verts.append(&mut font.get_verts(
                     &format!("{:.1}", x),
-                    &self.text,
+                    &self.labels.param,
                     [x, 0.0, bounds.z + M],
                 )?);
             }
@@ -127,7 +142,7 @@ impl Ticks {
                 let y = spacing * (i as f32);
                 verts.append(&mut font.get_verts(
                     &format!("{:.1}", y),
-                    &self.text,
+                    &self.labels.param,
                     [bounds.x + M, y, 0.0],
                 )?);
             }
@@ -137,7 +152,7 @@ impl Ticks {
                 let z = spacing * (i as f32);
                 verts.append(&mut font.get_verts(
                     &format!("{:.1}", z),
-                    &self.text,
+                    &self.labels.param,
                     [bounds.x + M, 0.0, z],
                 )?);
             }
@@ -212,16 +227,6 @@ impl Ticks {
             ]);
         }
         verts
-    }
-}
-
-impl TickLabels {
-    pub fn new() -> Self {
-        Self {
-            x: true,
-            y: true,
-            z: true,
-        }
     }
 }
 

@@ -1,15 +1,36 @@
 extern crate alloc;
 extern crate gl;
 extern crate glam;
-use crate::gl_wrap::{Buffer, Program, UniformMat, UniformVec, VertexArray};
+use crate::gl_wrap::{Buffer, Program, Uniform, VertexArray};
 use crate::plot::Bounds;
 use crate::scene::{DrawInds, DrawPass, Scene};
-use crate::text::{FontMap, TextParams};
+use crate::text::{FontMap, TextParams, DEFAULT_FONT};
 use crate::vertices::{pos_vert, PosVert, TextVert};
+
+pub struct AxisLabels {
+    pub x: String,
+    pub y: String,
+    pub z: String,
+    pub param: TextParams,
+}
+
+impl AxisLabels {
+    pub fn new() -> Self {
+        Self {
+            x: "x axis".to_string(),
+            y: "y axis".to_string(),
+            z: "z axis".to_string(),
+            param: TextParams {
+                font: DEFAULT_FONT.to_string(),
+                size: 14.0,
+                kearning: 0.0,
+            },
+        }
+    }
+}
 
 pub struct Axis {
     pub color: [f32; 4],
-    pub text: TextParams,
     pub labels: AxisLabels,
 }
 
@@ -17,7 +38,6 @@ impl Axis {
     pub fn new() -> Self {
         Self {
             color: [1.0, 1.0, 1.0, 1.0],
-            text: TextParams::new(),
             labels: AxisLabels::new(),
         }
     }
@@ -32,11 +52,11 @@ impl Axis {
         let line_verts = Axis::get_verts(bounds);
         let orient = Axis::get_label_orient(bounds);
         let mut text_verts = Vec::<TextVert>::new();
-        text_verts.append(&mut font.get_verts(&self.labels.x, &self.text, orient.x.pos)?);
+        text_verts.append(&mut font.get_verts(&self.labels.x, &self.labels.param, orient.x.pos)?);
         let x_vlen = text_verts.len() as i32;
-        text_verts.append(&mut font.get_verts(&self.labels.y, &self.text, orient.y.pos)?);
+        text_verts.append(&mut font.get_verts(&self.labels.y, &self.labels.param, orient.y.pos)?);
         let y_vlen = text_verts.len() as i32;
-        text_verts.append(&mut font.get_verts(&self.labels.z, &self.text, orient.z.pos)?);
+        text_verts.append(&mut font.get_verts(&self.labels.z, &self.labels.param, orient.z.pos)?);
         let z_vlen = text_verts.len() as i32;
 
         // init gl resources for line drawing
@@ -47,8 +67,8 @@ impl Axis {
         let line_buffer = Buffer::new_from(&line_verts, gl::STATIC_DRAW);
         let line_pos_loc = line_program.get_attrib_location("position")?;
         line_vao.set_attribute::<PosVert>(line_pos_loc, 3, 0);
-        let u_mvp_line = UniformMat::new(&line_program, "mvp", vec![mvp])?;
-        let u_color = UniformVec::new(&line_program, "color", vec![self.color])?;
+        let u_mvp_line = Uniform::new(&line_program, "mvp", &mvp)?;
+        let u_color = Uniform::new(&line_program, "color", &self.color)?;
 
         // init gl resources for text drawing
         const TEXT_VERT: &str = "./shaders/text_align_vert.glsl";
@@ -62,21 +82,34 @@ impl Axis {
         text_vao.set_attribute::<TextVert>(text_pos_loc, 3, 0);
         text_vao.set_attribute::<TextVert>(text_off_loc, 2, 3);
         text_vao.set_attribute::<TextVert>(text_tco_loc, 2, 5);
-        let u_mvp_text = UniformMat::new(&text_program, "mvp", vec![mvp])?;
-        let u_align = UniformVec::new(
-            &text_program,
-            "alignment",
-            vec![orient.x.align, orient.y.align, orient.z.align],
-        )?;
+        let scale = font.scale * self.labels.param.size;
+        let u_scale = Uniform::new(&text_program, "scale", &[scale])?;
+        let u_align_x = Uniform::new(&text_program, "alignment", &orient.x.align)?;
+        let u_align_y = Uniform::new(&text_program, "alignment", &orient.y.align)?;
+        let u_align_z = Uniform::new(&text_program, "alignment", &orient.z.align)?;
+        let u_mvp_text = Uniform::new(&text_program, "mvp", &mvp)?;
 
         let scene = Scene {
             programs: vec![line_program, text_program],
             vaos: vec![line_vao, text_vao],
             buffers: vec![line_buffer, text_buffer],
             textures: vec![font.texture],
-            matrices: vec![u_mvp_line, u_mvp_text],
-            vectors: vec![u_color, u_align],
+            uniforms: vec![
+                u_mvp_line, u_color, u_mvp_text, u_scale, u_align_x, u_align_y, u_align_z,
+            ],
             passes: vec![
+                // axis lines
+                DrawPass {
+                    draw_type: gl::LINES,
+                    start: 0,
+                    count: line_verts.len() as i32,
+                    inds: DrawInds {
+                        program: 0,
+                        vao: 0,
+                        texture: None,
+                        uniform: vec![0, 1],
+                    },
+                },
                 // x label
                 DrawPass {
                     draw_type: gl::TRIANGLES,
@@ -86,8 +119,7 @@ impl Axis {
                         program: 1,
                         vao: 1,
                         texture: Some(0),
-                        matrix: vec![[1, 0]],
-                        vector: vec![[1, 0]],
+                        uniform: vec![2, 3, 4],
                     },
                 },
                 // y label
@@ -99,8 +131,7 @@ impl Axis {
                         program: 1,
                         vao: 1,
                         texture: Some(0),
-                        matrix: vec![[1, 0]],
-                        vector: vec![[1, 1]],
+                        uniform: vec![2, 3, 5],
                     },
                 },
                 // z label
@@ -112,21 +143,7 @@ impl Axis {
                         program: 1,
                         vao: 1,
                         texture: Some(0),
-                        matrix: vec![[1, 0]],
-                        vector: vec![[1, 2]],
-                    },
-                },
-                // axis lines
-                DrawPass {
-                    draw_type: gl::LINES,
-                    start: 0,
-                    count: line_verts.len() as i32,
-                    inds: DrawInds {
-                        program: 0,
-                        vao: 0,
-                        texture: None,
-                        matrix: vec![[0, 0]],
-                        vector: vec![[0, 0]],
+                        uniform: vec![2, 3, 6],
                     },
                 },
             ],
@@ -152,36 +169,20 @@ impl Axis {
     }
 
     fn get_label_orient(b: &Bounds) -> LabelOrientations {
-        const M: f32 = 0.2; // label margin
+        const M: f32 = 0.15; // label margin
         LabelOrientations {
             x: LabelOrientation {
                 pos: [b.x * 0.5, 0.0, b.z + M],
-                align: [1.0, 0.0, 0.0, 1.0],
+                align: [1.0, 0.0, 0.0],
             },
             y: LabelOrientation {
                 pos: [b.x + M, b.y * 0.5, 0.0],
-                align: [0.0, -1.0, 0.0, 1.0],
+                align: [0.0, -1.0, 0.0],
             },
             z: LabelOrientation {
                 pos: [b.x + M, 0.0, b.z * 0.5],
-                align: [0.0, 0.0, 1.0, 1.0],
+                align: [0.0, 0.0, 1.0],
             },
-        }
-    }
-}
-
-pub struct AxisLabels {
-    pub x: String,
-    pub y: String,
-    pub z: String,
-}
-
-impl AxisLabels {
-    pub fn new() -> Self {
-        Self {
-            x: "x axis".to_string(),
-            y: "y axis".to_string(),
-            z: "z axis".to_string(),
         }
     }
 }
@@ -194,7 +195,7 @@ struct LabelOrientations {
 
 struct LabelOrientation {
     pub pos: [f32; 3],
-    pub align: [f32; 4],
+    pub align: [f32; 3],
 }
 
 extern crate thiserror;

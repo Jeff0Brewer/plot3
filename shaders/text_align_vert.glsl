@@ -4,7 +4,8 @@ in vec4 position;
 in vec2 offset;
 in vec2 a_texCoord;
 uniform mat4 mvp;
-uniform vec4 alignment;
+uniform vec3 alignment;
+uniform float scale;
 out vec2 v_texCoord;
 
 vec2 rotate2d(vec2 vec, float angle) {
@@ -16,7 +17,7 @@ vec2 rotate2d(vec2 vec, float angle) {
 
 void main() {
     vec4 pos = mvp * position;
-    vec4 align_pos = mvp * vec4(position.xyz + alignment.xyz, 1.0);
+    vec4 align_pos = mvp * vec4(position.xyz + alignment, 1.0);
 
     // calculate text orientation from diff between position and alignment vecs
     vec3 p0 = align_pos.xyz/align_pos.w;
@@ -32,6 +33,7 @@ void main() {
     if (abs(angle) > 1.5708) { angle -= 3.1416; }
     vec2 rotated_off = rotate2d(offset, angle);
 
-    gl_Position = vec4(pos.xy + rotated_off * .003, pos.zw);
+    gl_Position = pos;
+    gl_Position.xy += rotated_off * scale * pos.w;
     v_texCoord = a_texCoord;
 }

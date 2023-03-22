@@ -9,20 +9,6 @@ use std::collections::HashMap;
 use std::ffi::CString;
 use std::fs;
 
-pub const VERT_PER_CHAR: usize = 6; // num vertices per char in output vertex data
-static DEFAULT_FONT: &str = "./resources/Ubuntu-Regular.ttf";
-static CHAR_SET: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.";
-static FONT_SIZE: f32 = 30.0;
-static FONT_SUPERSAMPLE: f32 = 3.0;
-static MAP_SIZE: [f32; 2] = [1024.0, 512.0];
-static NUM_VERTEX: i32 = 4;
-static VERTICES: [BitmapVert; 4] = bmp_arr![
-    [0.5, 1.0, 1.0, 0.0],
-    [0.5, 0.0, 1.0, 1.0],
-    [-0.5, 1.0, 0.0, 0.0],
-    [-0.5, 0.0, 0.0, 1.0]
-];
-
 pub struct FontMapper {
     program: Program,
     vao: VertexArray,
@@ -147,11 +133,15 @@ impl FontMapper {
         framebuffer.bind_default();
         framebuffer.drop();
 
+        // get conversion value for px -> gl clip space
+        let font_scale = 4.0 / (self.window_size[1] as f32 * line_height);
+
         // return finished font map
         let fontmap = FontMap {
             texture: framebuffer.texture,
             verts: vertices,
             inds: indices,
+            scale: font_scale,
         };
         Ok(fontmap)
     }
@@ -212,6 +202,7 @@ pub struct FontMap {
     pub texture: Texture,
     pub verts: Vec<BitmapVert>,
     pub inds: HashMap<char, usize>,
+    pub scale: f32,
 }
 
 impl FontMap {
@@ -265,15 +256,19 @@ pub struct TextParams {
     pub kearning: f32,
 }
 
-impl TextParams {
-    pub fn new() -> Self {
-        Self {
-            font: DEFAULT_FONT.to_string(),
-            size: FONT_SIZE,
-            kearning: 0.0,
-        }
-    }
-}
+pub const VERT_PER_CHAR: usize = 6; // num vertices per char in output vertex data
+pub const DEFAULT_FONT: &str = "./resources/Ubuntu-Regular.ttf";
+static CHAR_SET: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.";
+static FONT_SIZE: f32 = 30.0;
+static FONT_SUPERSAMPLE: f32 = 3.0;
+static MAP_SIZE: [f32; 2] = [1024.0, 512.0];
+static NUM_VERTEX: i32 = 4;
+static VERTICES: [BitmapVert; 4] = bmp_arr![
+    [0.5, 1.0, 1.0, 0.0],
+    [0.5, 0.0, 1.0, 1.0],
+    [-0.5, 1.0, 0.0, 0.0],
+    [-0.5, 0.0, 0.0, 1.0]
+];
 
 extern crate thiserror;
 use crate::gl_wrap::{FramebufferError, ProgramError};
